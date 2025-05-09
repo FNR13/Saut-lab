@@ -1,0 +1,10 @@
+roscore
+
+rosparam set cv_camera/device_id 4
+
+rosrun cv_camera cv_camera_node
+
+rosrun camera_calibration cameracalibrator.py --size 8x6 --square 0.60 image:=/cv_camera/image_raw camera:=c/cv_camera --no-service-check
+
+/tmp/calibrationdata.tar.gz'
+
