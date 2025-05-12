@@ -1,3 +1,0 @@
-[submodule "catkin_ws_saut/src/freenect_stack"]
-	path = catkin_ws_saut/src/freenect_stack
-	url = https://github.com/ros-drivers/freenect_stack.git
