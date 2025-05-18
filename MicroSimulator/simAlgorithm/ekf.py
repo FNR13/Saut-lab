@@ -3,7 +3,7 @@ import numpy as np
 
 import pygame
 
-from utils import wrap_angle_rad
+from simClasses.utils import wrap_angle_rad
 
 def compute_jacobians(robot, xf, Pf, Q_cov):
     """
