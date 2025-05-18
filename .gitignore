@@ -1,3 +1,9 @@
 /bags
 /bag
 .bag
+
+devel/
+build/
+
+__pycache__
+.ipynb_checkpoints
