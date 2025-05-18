@@ -1,11 +1,123 @@
 import math
 import pygame
 import random
+import numpy as np
 
 
 def wrap_angle_rad(angle):
     """Wrap angle to [0, 2π)"""
     return angle % (2 * math.pi)
+
+def compute_jacobians(robot, xf, Pf, Q_cov):
+    """
+    Robot7Particles are the mesurments therfore noise is expected
+    Compute expected measurement, Jacobians, and innovation covariance for EKF update.
+    
+    Parameters:
+    - robot: the robot object with x, y, theta (pose)
+    - xf: landmark mean position as a 2x1 numpy array [[x], [y]]
+    - Pf: 2x2 covariance matrix of the landmark
+    - Q_cov: 2x2 measurement noise covariance (sensor noise)
+
+    Returns:
+    - zp: 2x1 predicted measurement [range; bearing]
+    - Hv: 2x3 Jacobian of the measurement w.r.t. robot state
+    - Hf: 2x2 Jacobian of the measurement w.r.t. landmark position
+    - Sf: 2x2 innovation covariance matrix
+    """
+
+    # Difference in x and y between landmark and robot
+    dx = xf[0, 0] - robot.x
+    dy = xf[1, 0] - robot.y
+
+    # Squared and actual distance
+    d2 = dx ** 2 + dy ** 2
+    d = math.sqrt(d2)
+
+    # Predicted measurement: range and bearing
+    zp = np.array([
+        d,  # range
+        wrap_angle_rad(math.atan2(dy, dx) - robot.theta)  # bearing (angle between robot orientation and landmark)
+    ]).reshape(2, 1)
+
+    # Jacobian w.r.t. robot pose [x, y, theta]
+    Hv = np.array([
+        [-dx / d,     -dy / d,      0.0],
+        [dy / d2,     -dx / d2,    -1.0]
+    ])
+
+    # Jacobian w.r.t. landmark position [xf, yf]
+    Hf = np.array([
+        [ dx / d,     dy / d],
+        [-dy / d2,    dx / d2]
+    ])
+
+    # Innovation covariance matrix (uncertainty in prediction)
+    Sf = Hf @ Pf @ Hf.T + Q_cov
+
+    return zp, Hv, Hf, Sf
+
+def update_kf_with_cholesky(xf, Pf, v, Q_cov, Hf):
+    """
+    Provides numerical Stability when inverting the matrix 
+    Perform an Extended Kalman Filter (EKF) update step for a landmark using Cholesky decomposition.
+
+    Parameters:
+    - xf: (2x1 np.array) current estimate of the landmark position
+    - Pf: (2x2 np.array) covariance matrix of the landmark estimate
+    - v: (2x1 np.array) innovation vector (z_actual - z_predicted)
+    - Q_cov: (2x2 np.array) measurement noise covariance matrix
+    - Hf: (2x2 np.array) Jacobian of the measurement model w.r.t. the landmark position
+
+    Returns:
+    - x: (2x1 np.array) updated landmark position estimate
+    - P: (2x2 np.array) updated landmark covariance
+    """
+
+    PHt = Pf @ Hf.T                      # Cross covariance
+    S = Hf @ PHt + Q_cov                 # Innovation covariance
+
+    S = (S + S.T) * 0.5                  # Symmetrize S for numerical stability
+    s_chol = np.linalg.cholesky(S).T    # Cholesky decomposition of S
+    s_chol_inv = np.linalg.inv(s_chol)  # Inverse of upper Cholesky factor
+    W1 = PHt @ s_chol_inv               # Intermediate step for Kalman gain
+    W = W1 @ s_chol_inv.T               # Kalman gain
+
+    x = xf + W @ v                      # Updated landmark mean
+    P = Pf - W1 @ W1.T                  # Updated landmark covariance
+
+    return x, P
+
+def update_landmark(robot, z, Q_cov):
+    lm_id = int(z[2])
+    xf = np.array(robot.lm[lm_id, :]).reshape(2, 1)
+    Pf = np.array(robot.lmP[2 * lm_id:2 * lm_id + 2, :])
+
+    zp, Hv, Hf, Sf = compute_jacobians(robot, xf, Pf, Q_cov)
+
+    dz = z[0:2].reshape(2, 1) - zp
+    dz[1, 0] = wrap_angle_rad(dz[1, 0])
+
+    xf, Pf = update_kf_with_cholesky(xf, Pf, dz, Q_cov, Hf)
+
+    robot.lm[lm_id, :] = xf.T
+    robot.lmP[2 * lm_id:2 * lm_id + 2, :] = Pf
+
+    return robot
+
+def draw_covariance_ellipse(win, mean, cov, color=(255, 0, 0), scale=2.0):
+    eigenvals, eigenvecs = np.linalg.eig(cov)
+    order = eigenvals.argsort()[::-1]
+    eigenvals, eigenvecs = eigenvals[order], eigenvecs[:, order]
+
+    angle = math.degrees(math.atan2(eigenvecs[1, 0], eigenvecs[0, 0]))
+    width, height = 2 * scale * np.sqrt(eigenvals)
+
+    ellipse_surf = pygame.Surface((width, height), pygame.SRCALPHA)
+    pygame.draw.ellipse(ellipse_surf, (*color, 100), (0, 0, width, height))
+    ellipse_rot = pygame.transform.rotate(ellipse_surf, -angle)
+    rect = ellipse_rot.get_rect(center=(mean[0], mean[1]))
+    win.blit(ellipse_rot, rect) 
 
 
 class Envo:
@@ -43,7 +155,7 @@ class Envo:
 
 
 class Robot:
-    def __init__(self, startpoint, robotimg, width):
+    def __init__(self, startpoint, robotimg, width, n_landmarks=50):
         self.met2pix = 3779.52
         self.wd = width
         self.x = startpoint[0]
@@ -54,6 +166,13 @@ class Robot:
         self.max = 0.05 * self.met2pix
         self.min = 0.002 * self.met2pix
 
+        # --- Mapping ---
+        self.lm = np.full((n_landmarks, 2), np.nan)
+        self.lmP = np.full((2 * n_landmarks, 2), np.nan)
+        self.observed_landmarks = {}  # mapping from landmark_id to index
+        self.lm_observation_count = np.zeros(n_landmarks, dtype=int)
+
+        # --- Graphics ---
         self.imge = pygame.image.load(robotimg).convert_alpha()
         self.rotate = self.imge
         self.rect = self.rotate.get_rect(center=(self.x, self.y))
@@ -89,6 +208,19 @@ class Robot:
     
         self.rotate = pygame.transform.rotozoom(self.imge, math.degrees(self.theta), 1)
         self.rect = self.rotate.get_rect(center=(self.x, self.y))
+        
+    def get_noisy_pose(self, noise_std=(1.0, 1.0, 0.05)):
+        """
+        Returns the pose (x, y, theta) with added Gaussian noise.
+        Parameters:
+            noise_std (tuple): Standard deviations for (x, y, theta) noise.
+        Returns:
+            tuple: (x_noisy, y_noisy, theta_noisy)
+        """
+        x_noisy = self.x + np.random.normal(0, noise_std[0])
+        y_noisy = self.y + np.random.normal(0, noise_std[1])
+        theta_noisy = self.theta + np.random.normal(0, noise_std[2])
+        return x_noisy, y_noisy, theta_noisy
         
 
 class CarSensor:
@@ -203,6 +335,29 @@ class Landmarks:
     
     def get_positions(self):
         return self.positions
+    
+    def get_id_and_positions(self, noise_std=0):
+        """
+        Returns a list of (id, noisy_position) tuples.
+        
+        Parameters:
+            noise_std (float or tuple): Standard deviation for Gaussian noise.
+                                        If float, applies equally to x and y.
+                                        If tuple, expected as (std_x, std_y).
+        """
+        if isinstance(noise_std, (int, float)):
+            std_x = std_y = noise_std
+        else:
+            std_x, std_y = noise_std
+    
+        noisy_positions = []
+        for i, (x, y) in enumerate(self.positions):
+            noisy_x = x + np.random.normal(0, std_x)
+            noisy_y = y + np.random.normal(0, std_y)
+            noisy_positions.append((i, (noisy_x, noisy_y)))
+        
+        return noisy_positions
+
         
 
 pygame.init()
@@ -226,37 +381,76 @@ highlighted = set()
 dt = 0
 prevtime = pygame.time.get_ticks()
 
-run= True
+run = True
 
 while run:
     for event in pygame.event.get():
         if event.type == pygame.QUIT:
             run = False
 
-    keys = pygame.key.get_pressed()  # get all keys pressed right now
-    rob.update_velocities(keys)       # update velocities continuously if keys held
-    rob.update_kinematics()           # update position and angle based on velocities
+    keys = pygame.key.get_pressed()
+    rob.update_velocities(keys)
+    rob.update_kinematics()
 
     dt = clock.tick(60) / 1000.0
     prevtime = pygame.time.get_ticks()
 
-    env.win.fill(env.white)           # Clear screen first
-    landmarks.draw(env.win)           # Draw landmarks
+    env.win.fill(env.white)
+    landmarks.draw(env.win)
     rob.draw(env.win)
     env.trajectory((rob.x, rob.y))
     env.write(int(rob.velL), int(rob.velR), rob.theta)
-    pygame.display.update()           # Update screen last
-    
+
     sensor.draw(env.win, (rob.x, rob.y), rob.theta)
 
-    #Landmark Detection
     visible_landmarks = sensor.filter_landmarks(landmarks.get_positions(), (rob.x, rob.y), rob.theta)
-    
-    # For example, highlight visible landmarks in red
-    for vpos in visible_landmarks:
-        pygame.draw.circle(env.win, env.red, (int(vpos[0]), int(vpos[1])), landmarks.radius + 3, 2)
+    Q_cov = np.diag([20.0, np.radians(30)])
 
-    pygame.display.update()         
+    for idx, pos in enumerate(landmarks.get_positions()):
+        # Draw true landmark position as red circle for ground truth
+        pygame.draw.circle(env.win, (255, 0, 0), (int(pos[0]), int(pos[1])), 4)
 
+        if pos in visible_landmarks:
+            dx = pos[0] - rob.x
+            dy = pos[1] - rob.y
+            rng = math.hypot(dx, dy)
+            brg = wrap_angle_rad(math.atan2(dy, dx) - rob.theta)
+            z = np.array([rng, brg, idx])
+
+            if np.isnan(rob.lm[idx, 0]):
+                lx = rob.x + rng * math.cos(brg + rob.theta)
+                ly = rob.y + rng * math.sin(brg + rob.theta)
+                rob.lm[idx, :] = [lx, ly]
+                rob.lmP[2 * idx:2 * idx + 2, :] = np.eye(2) * 100.0
+                rob.lm_observation_count[idx] = 1  # Initialize count
+            else:
+                rob = update_landmark(rob, z, Q_cov)
+                rob.lm_observation_count[idx] += 1
+
+    for i in range(len(rob.lm)):
+        if not np.isnan(rob.lm[i, 0]):
+            mean = rob.lm[i, :]
+            cov = rob.lmP[2 * i:2 * i + 2, :]
+
+            # Compute ellipse confidence for color
+            uncertainty = np.mean(np.diag(cov[:2, :2]))
+            if uncertainty < 30:
+                color = (0, 255, 0)  # Green = confident
+            elif uncertainty < 80:
+                color = (255, 165, 0)  # Orange = medium
+            else:
+                color = (255, 0, 0)  # Red = uncertain
+
+            draw_covariance_ellipse(env.win, mean, cov, color=color)
+
+            # Optional: show uncertainty as text
+            font = pygame.font.SysFont(None, 16)
+            txt = font.render(f"{uncertainty:.1f}", True, (0, 0, 0))
+            env.win.blit(txt, (mean[0] + 5, mean[1] - 5))
+
+            # Console log (optional)
+            print(f"Landmark {i}: Obs={rob.lm_observation_count[i]} | Cov={np.diag(cov[:2, :2])}")
     
+    pygame.display.update()
+
 pygame.quit()
