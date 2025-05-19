@@ -9,12 +9,15 @@ from utils import wrap_angle_rad
 from utils import pose_estimation
 from utils import compute_weight
 from utils import update_particles
-from utils import resample
 from utils import compute_displazament
 from utils import compute_angle_ratio
 from utils import compute_uncertainty
 from utils import update_uncertainties
+from utils import sample_particules
+from utils import resample_particles
 from utils import resample_uncertainties
+from utils import resample_lm_means
+from utils import resample_lm_cov
 
 
 from robot import Robot
@@ -46,9 +49,11 @@ def main():
     '''
     n_landmarks=10
     lm_previous_means = np.zeros((n_particles,n_landmarks,2),dtype = float)
+    lm_current_means = np.zeros((n_particles,n_landmarks,2),dtype = float)
+    lm_cov = np.zeros((n_particles,n_landmarks,2,2),dtype = float)
 
     weights = np.ones(n_particles, dtype=float)/n_particles
-    most_probable = 0
+    most_probable_particle = 0
     dim = (1200, 800)
     env = Envo(dim)
     start = (400, 200)
@@ -56,8 +61,7 @@ def main():
     previous_theta = rob.theta
     previous_x = rob.x
     previous_y = rob.y
-    previous_weight = 1
-    total_weight = 0
+    previous_weight = 1.0
     landmarks = Landmarks(n_landmarks, window_size=(dim[0], dim[1]))
 
     sensor = CarSensor(
@@ -75,10 +79,7 @@ def main():
 
     run = True
 
-    #DELETE
-    observation = np.ones(2, dtype=float) #this must be read from the sensor:
-                                        #the first value must be the distance between the sensor and the landmark
-                                        #the second value must be the angle  
+    #DELETE 
     variance = np.ones(2, dtype=float) #this is the varince in the sensor: first regarding distance and second angle (EKF unit)
 
     time_instant = 1 
@@ -112,7 +113,7 @@ def main():
         for k in range(n_particles): #For each particle
 
             #Delta D
-            delta_D = compute_displazament(rob.x,rob.y,previous_x,previous_y)
+            delta_D = compute_displazament(rob.x,rob.y,previous_x,previous_y) #CHECK if it is correct
 
             # Delta theta 
             delta_theta = compute_angle_ratio(rob.theta,previous_theta) #CHECK if it is in rad!
@@ -150,6 +151,10 @@ def main():
                     mean = rob.lm[i, :]
                     cov = rob.lmP[2 * i:2 * i + 2, :]
 
+                    # Saving the mean and cov of the landmark
+                    lm_cov[k,i,:,:] = cov
+                    lm_current_means[k,i,:] = mean
+
                     # Compute ellipse confidence for color
                     uncertainty = np.mean(np.diag(cov[:2, :2]))
                     if uncertainty < 30:
@@ -171,13 +176,12 @@ def main():
                     
                     # Weight computing
                     if np.any(lm_previous_means[k,i,:] != 0): #we only compute the weight if we had a previous mean
-                        weights[k] = compute_weight(mean,lm_previous_means[k,i,:],new_pose[k,0,:],variance)
+                        weights[k] = compute_weight(lm_current_means[k,i,:],lm_previous_means[k,i,:],new_pose[k,0,:],variance)
                         weights[k] = previous_weight * weights[k]
                         previous_weight = weights[k]
 
-            previous_weight = 1
+            previous_weight = 1.0
             
-
         # Particle updating
         particles = update_particles(particles, new_pose)
 
@@ -188,10 +192,14 @@ def main():
         weights = weights/np.sum(weights)
 
         # Resampling
-        particles = resample(particles,weights,n_particles)
-        uncertainties = resample_uncertainties(uncertainties,weights,n_particles)
+        indexes = sample_particules(n_particles, weights)
+        particles = resample_particles(particles,indexes)
+        uncertainties = resample_uncertainties(uncertainties,indexes)
+        lm_previous_means = resample_lm_means(lm_previous_means,indexes)
+        lm_current_means = resample_lm_means(lm_current_means,indexes)
+        lm_cov = resample_lm_cov(lm_cov,indexes)
         
-        most_probable = np.argmax(weights)
+        most_probable_particle = np.argmax(weights)
         time_instant += 1
         previous_theta = rob.theta
         previous_x = rob.x
@@ -202,14 +210,20 @@ def main():
     pygame.quit()
 
     # Plot most probable path
-    print('\nMost probable particle:',most_probable)
-    print('Weigth of the most probable particle',weights[most_probable]/np.sum(weights))
-    plt.plot(particles[most_probable,:,0],particles[most_probable,:,1],label='Mean path')
+    print('\nMost probable particle:',most_probable_particle)
+    print('Weigth of the most probable particle',weights[most_probable_particle]/np.sum(weights))
+
+    plt.plot(particles[most_probable_particle,:,0],particles[most_probable_particle,:,1],label='Mean path')
+    for i in range(n_landmarks):
+        if np.any(rob.lm[i, :] != 0):
+            plt.scatter(lm_current_means[most_probable_particle,i,0],lm_current_means[most_probable_particle,i,1])
+    
     plt.xlabel('X')
     plt.ylabel('Y') 
+    plt.gca().invert_yaxis()  # Hace que Y crezca hacia abajo, igual que en pygame
     plt.show()
     print('\n')
-    print(uncertainties[most_probable,-1,:,:])
+    print(uncertainties[most_probable_particle,-1,:,:])
 
     #for t in range(uncertainties.shape[1]):
         #if t % 100 == 0:
