@@ -44,6 +44,9 @@ def main():
     Then, each cell represents the uncertanty matrix of a particle in a concrete instant of time
     As the initial pose is (0,0,0), our uncertity there will be 0. 
     '''
+    n_landmarks=10
+    lm_previous_means = np.zeros((n_particles,n_landmarks,2),dtype = float)
+
     weights = np.ones(n_particles, dtype=float)/n_particles
     most_probable = 0
     dim = (1200, 800)
@@ -53,7 +56,9 @@ def main():
     previous_theta = rob.theta
     previous_x = rob.x
     previous_y = rob.y
-    landmarks = Landmarks(num_landmarks=10, window_size=(dim[0], dim[1]))
+    previous_weight = 1
+    total_weight = 0
+    landmarks = Landmarks(n_landmarks, window_size=(dim[0], dim[1]))
 
     sensor = CarSensor(
         car_width=rob.wd,  # your robot width
@@ -123,24 +128,25 @@ def main():
                 pygame.draw.circle(env.win, (255, 0, 0), (int(pos[0]), int(pos[1])), 4)
 
                 if pos in visible_landmarks:
-                    dx = pos[0] - rob.x
-                    dy = pos[1] - rob.y
+                    dx = pos[0] -  new_pose[k,0,0]
+                    dy = pos[1] - new_pose[k,0,1]
                     rng = math.hypot(dx, dy)
-                    brg = wrap_angle_rad(math.atan2(dy, dx) - rob.theta)
+                    brg = wrap_angle_rad(math.atan2(dy, dx) - new_pose[k,0,2])
                     z = np.array([rng, brg, idx])
 
                     if np.isnan(rob.lm[idx, 0]):
-                        lx = rob.x + rng * math.cos(brg + rob.theta)
-                        ly = rob.y + rng * math.sin(brg + rob.theta)
+                        lx = new_pose[k,0,0] + rng * math.cos(brg + new_pose[k,0,2])
+                        ly = new_pose[k,0,1] + rng * math.sin(brg + new_pose[k,0,2])
                         rob.lm[idx, :] = [lx, ly]
                         rob.lmP[2 * idx:2 * idx + 2, :] = np.eye(2) * 100.0
                         rob.lm_observation_count[idx] = 1  # Initialize count
                     else:
+                        lm_previous_means[k,idx,:] = rob.lm[idx, :]
                         rob = update_landmark(rob, z, Q_cov)
                         rob.lm_observation_count[idx] += 1
 
             for i in range(len(rob.lm)):
-                if not np.isnan(rob.lm[i, 0]):
+                if not np.isnan(rob.lm[i, 0]): 
                     mean = rob.lm[i, :]
                     cov = rob.lmP[2 * i:2 * i + 2, :]
 
@@ -163,17 +169,14 @@ def main():
                     # Console log (optional)
                     print(f"Landmark {i}: Obs={rob.lm_observation_count[i]} | Cov={np.diag(cov[:2, :2])}")
                     
-                    weights[k] = compute_weight(mean,observation,new_pose[k,0,:],variance)
-                    weight_previous = weights[k]
+                    # Weight computing
+                    if np.any(lm_previous_means[k,i,:] != 0): #we only compute the weight if we had a previous mean
+                        weights[k] = compute_weight(mean,lm_previous_means[k,i,:],new_pose[k,0,:],variance)
+                        weights[k] = previous_weight * weights[k]
+                        previous_weight = weights[k]
 
-            # Weight computing
-            # TO DO: add the obsevation taken from the sensor 
-            #1. Know which landmark we're looking at (index)
-            #2. Get the current distance and the angle to that landmark 
-            #3. Compare with the previous measurement
-            #4. If we're lookin at a landmark, we update the weight, otherwhise, the weight remains 
-
-            #weights[k] = compute_weight(observation,new_pose[k,0,:],variance)
+            previous_weight = 1
+            
 
         # Particle updating
         particles = update_particles(particles, new_pose)
@@ -200,7 +203,7 @@ def main():
 
     # Plot most probable path
     print('\nMost probable particle:',most_probable)
-    print('Wei¡gth of the most probable particle',weights[most_probable]/np.sum(weights))
+    print('Weigth of the most probable particle',weights[most_probable]/np.sum(weights))
     plt.plot(particles[most_probable,:,0],particles[most_probable,:,1],label='Mean path')
     plt.xlabel('X')
     plt.ylabel('Y') 
@@ -208,11 +211,11 @@ def main():
     print('\n')
     print(uncertainties[most_probable,-1,:,:])
 
-    for t in range(uncertainties.shape[1]):
-        if t % 100 == 0:
-            mean = np.array([particles[most_probable,t,0],particles[most_probable,t,1]])
-            cov = np.diag([uncertainties[most_probable,t,0,0], uncertainties[most_probable,t,1,1]])
-            draw_covariance_ellipse(env.win, mean, cov, color=(255, 0, 0))
+    #for t in range(uncertainties.shape[1]):
+        #if t % 100 == 0:
+            #mean = np.array([particles[most_probable,t,0],particles[most_probable,t,1]])
+            #cov = np.diag([uncertainties[most_probable,t,0,0], uncertainties[most_probable,t,1,1]])
+            #draw_covariance_ellipse(env.win, mean, cov, color=(255, 0, 0))
     
 # end main
 

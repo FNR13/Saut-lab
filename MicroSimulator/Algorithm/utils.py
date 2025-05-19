@@ -60,17 +60,17 @@ def compute_uncertainty(previous_un, delta_D, previous_angle):
     return new_uncertainty.copy()
  
 
-def observation_prediction(pose,mean):
+def observation_prediction(pose,observation):
     '''Obserbavility function''' 
 
     #TO DO: p_x and p_y from the real map, identify the landmark and delete the following line when it's done
-    p_x = mean[0] #x coordenate mean of landmark i in a concrete particle 
-    p_y = mean[1] #y coordenate mean of landmark i in a concrete particle
+    p_x = observation[0] #x coordenate mean of landmark i in a concrete particle 
+    p_y = observation[1] #y coordenate mean of landmark i in a concrete particle
 
     # Measurement noise following a Normal distribution
-    mean = np.zeros(2) #zero mean
+    noise_mean = np.zeros(2) #zero mean
     cov = np.eye(2)    #identity matrix 
-    epsilon = np.random.multivariate_normal(mean, cov)
+    epsilon = np.random.multivariate_normal(noise_mean, cov)
     
     z_hat = np.zeros(2,dtype = float)
 
@@ -85,7 +85,7 @@ def observation_prediction(pose,mean):
     return z_hat
 
 
-def compute_weight(mean,observation, pose, variance):
+def compute_weight(observation, previous_obs, pose, variance):
 
     # TO DO: discover the variance of the sensor: are they const or dynamic?
     '''
@@ -98,18 +98,19 @@ def compute_weight(mean,observation, pose, variance):
      - weght = probability an observaion given the robot's pose
     '''
 
-    # Predictions based on the estimated position of the robot 
-    z_predicted = observation_prediction(pose,mean)
-    r_hat = z_predicted[0] #distance between sensor and landmark 
-    phi_hat = z_predicted[1] #angle between sensor and landmark 
+    # Predictions based on the estimated position of the robot and the previous estimated landmark position
+    z_hat = observation_prediction(pose,previous_obs)
+    r_hat = z_hat[0] #distance between sensor and landmark 
+    phi_hat = z_hat[1] #angle between sensor and landmark 
 
-    # Real position based on the sensor data
-    r = observation[0]
-    phi = observation[1]
+    # Predictions based on the estimated position of the robot and the current estimated landmark position
+    z_current = observation_prediction(pose,observation)
+    r_current = z_current[0] #distance between sensor and landmark 
+    phi_current = z_current[1] #angle between sensor and landmark 
 
     # Compute the probabilities for each variable (Gaussian distribution) 
-    p_zr_given_xi = (1/math.sqrt(2*math.pi*variance[0]))*math.exp(-(r-r_hat)/2*variance[0]) 
-    p_zphi_given_xi = (1/math.sqrt(2*math.pi*variance[1]))*math.exp(-(phi-phi_hat)/2*variance[1]) 
+    p_zr_given_xi = (1/math.sqrt(2*math.pi*variance[0]))*math.exp(-(r_current-r_hat)/2*variance[0]) 
+    p_zphi_given_xi = (1/math.sqrt(2*math.pi*variance[1]))*math.exp(-(phi_current-phi_hat)/2*variance[1]) 
 
     # Compute joined probabilities of incorrelated variables
     return p_zr_given_xi*p_zphi_given_xi
