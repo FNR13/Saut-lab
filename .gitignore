@@ -2,7 +2,9 @@
 /bag
 .bag
 
-catkin_ws_saut
+/catkin_ws_saut
 
 __pycache__
 .ipynb_checkpoints
+
+.DS_Store
