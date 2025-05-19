@@ -47,23 +47,24 @@ class Robot:
             self.velL = max(self.velL - increment, self.min)
             self.velR = max(self.velR - increment, self.min)
 
-        if keys[pygame.K_4]:  # Increase left
+        if keys[pygame.K_RIGHT]:  # Increase left
             self.velL = min(self.velL + increment, self.max)
-        if keys[pygame.K_1]:  # Decrease left
+        if keys[pygame.K_LEFT]:  # Decrease left
             self.velL = max(self.velL - increment, self.min)
-        if keys[pygame.K_6]:  # Increase right
+        if keys[pygame.K_LEFT]:  # Increase right
             self.velR = min(self.velR + increment, self.max)
-        if keys[pygame.K_3]:  # Decrease right
+        if keys[pygame.K_RIGHT]:  # Decrease right
             self.velR = max(self.velR - increment, self.min)
-        if keys[pygame.K_5]:  # Increase both
+        if keys[pygame.K_UP]:  # Increase both
             self.velL = min(self.velL + increment, self.max)
             self.velR = min(self.velR + increment, self.max)
-        if keys[pygame.K_2]:  # Decrease both
+        if keys[pygame.K_DOWN]:  # Decrease both
             self.velL = max(self.velL - increment, self.min)
             self.velR = max(self.velR - increment, self.min)
         if keys[pygame.K_SPACE]:  # Equalize both velocities
             avg = (self.velL + self.velR) / 2
             self.velL = self.velR = avg
+
 
     def update_kinematics(self, dt):
         self.x += ((self.velL + self.velR) / 2) * math.cos(self.theta) * dt

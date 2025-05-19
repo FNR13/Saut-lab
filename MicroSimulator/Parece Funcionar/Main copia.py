@@ -123,7 +123,7 @@ def main():
         color=(0, 255, 0)
     )
 
-    N_PARTICLES = 100
+    N_PARTICLES = 1000
     particles = [
         Particle(rob.x, rob.y, rob.theta, robot_width=rob.wd)
         for _ in range(N_PARTICLES)
@@ -172,7 +172,7 @@ def main():
             if pos in visible_landmarks:
                 dx = pos[0] - p.x
                 dy = pos[1] - p.y
-                rng = math.hypot(dx, dy) + np.random.normal(0, np.sqrt(Q_cov[0, 0]))
+                rng = math.hypot(dx, dy) + 0 * np.random.normal(0, np.sqrt(Q_cov[0, 0]))
                 brg = wrap_angle_rad(math.atan2(dy, dx) - p.theta + np.random.normal(0, np.sqrt(Q_cov[1, 1])))
                 z_all.append([rng, brg, idx])
 

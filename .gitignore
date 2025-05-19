@@ -2,8 +2,7 @@
 /bag
 .bag
 
-devel/
-build/
+catkin_ws_saut
 
 __pycache__
 .ipynb_checkpoints
