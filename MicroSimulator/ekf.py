@@ -102,18 +102,24 @@ def update_landmark(robot, z, Q_cov):
 
     return robot
 
-def draw_covariance_ellipse(win, mean, cov, color=(255, 0, 0), scale=2.0):
+def draw_covariance_ellipse(win, mean, cov, color=(255, 0, 0), scale=2.0, min_size=5.0):
     eigenvals, eigenvecs = np.linalg.eig(cov)
     order = eigenvals.argsort()[::-1]
     eigenvals, eigenvecs = eigenvals[order], eigenvecs[:, order]
 
     angle = math.degrees(math.atan2(eigenvecs[1, 0], eigenvecs[0, 0]))
-    width, height = 2 * scale * np.sqrt(eigenvals)
+    
+    # Compute ellipse axes
+    width = max(min_size, 2 * scale * np.sqrt(eigenvals[0]))
+    height = max(min_size, 2 * scale * np.sqrt(eigenvals[1]))
 
+    # Draw on a transparent surface
     ellipse_surf = pygame.Surface((width, height), pygame.SRCALPHA)
     pygame.draw.ellipse(ellipse_surf, (*color, 100), (0, 0, width, height))
+    
     ellipse_rot = pygame.transform.rotate(ellipse_surf, -angle)
     rect = ellipse_rot.get_rect(center=(mean[0], mean[1]))
-    win.blit(ellipse_rot, rect) 
+    win.blit(ellipse_rot, rect)
+
 
         

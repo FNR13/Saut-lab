@@ -70,7 +70,10 @@ class Robot:
         self.x += ((self.velL + self.velR) / 2) * math.cos(self.theta) * dt
         self.y -= ((self.velL + self.velR) / 2) * math.sin(self.theta) * dt
         self.theta += (self.velR - self.velL) / self.wd * dt
-    
+
+        # v += np.random.normal(0, noise_std[0])
+        # omega += np.random.normal(0, noise_std[2])
+
         self.rotate = pygame.transform.rotozoom(self.imge, math.degrees(self.theta), 1)
         self.rect = self.rotate.get_rect(center=(self.x, self.y))
         
