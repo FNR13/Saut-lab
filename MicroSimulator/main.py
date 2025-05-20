@@ -16,11 +16,12 @@ from simAlgorithm.fastslam import FastSLAM
 def main():
 
     robot_initial_pose = [0, 0, 0]
+    # robot_initial_pose = [0, 0, 0]
 
-    # FastSLAM initialization
+    # FastSLAM initialization/Tuning
     N_PARTICLES = 100
     particles_odometry_uncertanty = (0.001, 0.05)  # (speed, anngular rate)
-    landmarks_initial_uncertanty = 10  # Initial uncertainty for landmarks
+    landmarks_initial_uncertanty = 100  # Initial uncertainty for landmarks
     Q_cov = np.diag([20.0, np.radians(30)])  # Measurement noise for fast slam - for range and bearing
 
     fastslam = FastSLAM(
@@ -32,12 +33,12 @@ def main():
     )
     
     # Noise implementations
-    use_camera_noise = False
-    range_noise_power = 20
+    use_camera_noise = True
+    range_noise_power = 10
     bearing_noise_power = np.radians(5)
 
-    use_odometry_noise = False
-    odemetry_noise_power = 0.001
+    use_odometry_noise = True
+    odemetry_noise_power = 0.05
 
     # Simulation Initiations
     pygame.init()
@@ -106,25 +107,28 @@ def main():
 
                 # Add noise
                 if use_camera_noise:
-                    range =+ np.random.normal(0, range_noise_power) 
-                    bearing =+ np.random.normal(0, bearing_noise_power) 
+                    print(f"range: {range} | bearing: {bearing}")
+                    range += np.random.normal(0, range_noise_power) 
+                    bearing += np.random.normal(0, bearing_noise_power) 
+                    print(f"range(noise): {range} | bearing: {bearing}","\n")
 
                 z_all.append([marker_id, range, bearing])
                 
         # Add noise to the odometry
-        # print(z_all)
+        velL = rob.velL
+        velR = rob.velR
 
         if use_odometry_noise:
-            rob.velL += np.random.normal(0, odemetry_noise_power)
-            rob.velR += np.random.normal(0, odemetry_noise_power)
+            velL += np.random.normal(0, odemetry_noise_power)
+            velR += np.random.normal(0, odemetry_noise_power)
 
-        velocity = (rob.velL + rob.velR) / 2.0
-        omega = (rob.velR - rob.velL) / rob.wd
+        odemetry_velocity = (velL + velR) / 2.0
+        odometry_omega = (velR - velL) / rob.wd
 
         # ----------
         # FastSLAM step
         # --- Motion update 
-        fastslam.predict_particles(velocity, omega, dt)
+        fastslam.predict_particles(odemetry_velocity, odometry_omega, dt)
 
         # --- Observation update
         if z_all:   
@@ -161,7 +165,7 @@ def main():
 
                 env.win.blit(txt, (mean[0][0] + 5, mean[1][0] - 5))
 
-                print(f"Landmark {selected_particle.landmarks_id[idx]}: Obs={selected_particle.landmarks_observation_count[idx]} | Cov={np.diag([cov[0][0], cov[1][1]])} | Pos={mean[0][0]:.1f}, {mean[1][0]:.1f} | Uncertainty={uncertainty:.1f}","\n")
+                # print(f"Landmark {selected_particle.landmarks_id[idx]}: Obs={selected_particle.landmarks_observation_count[idx]} | Cov={np.diag([cov[0][0], cov[1][1]])} | Pos={mean[0][0]:.1f}, {mean[1][0]:.1f} | Uncertainty={uncertainty:.1f}","\n")
         pygame.display.update()
 
     pygame.quit()
