@@ -15,14 +15,14 @@ from simAlgorithm.fastslam import FastSLAM
 
 def main():
 
-    robot_initial_pose = (400, 200, 0)
+    robot_initial_pose = [0, 0, 0]
 
     # FastSLAM initialization
     N_PARTICLES = 100
     particles_odometry_uncertanty = (0.001, 0.05)  # (speed, anngular rate)
-    landmarks_initial_uncertanty = 100  # Initial uncertainty for landmarks
+    landmarks_initial_uncertanty = 10  # Initial uncertainty for landmarks
     Q_cov = np.diag([20.0, np.radians(30)])  # Measurement noise for fast slam - for range and bearing
-    
+
     fastslam = FastSLAM(
         robot_initial_pose,
         N_PARTICLES,
@@ -110,8 +110,10 @@ def main():
                     bearing =+ np.random.normal(0, bearing_noise_power) 
 
                 z_all.append([marker_id, range, bearing])
-        
+                
         # Add noise to the odometry
+        # print(z_all)
+
         if use_odometry_noise:
             rob.velL += np.random.normal(0, odemetry_noise_power)
             rob.velR += np.random.normal(0, odemetry_noise_power)
@@ -159,7 +161,7 @@ def main():
 
                 env.win.blit(txt, (mean[0][0] + 5, mean[1][0] - 5))
 
-                print(f"Landmark {selected_particle.landmarks_id[idx]}: Obs={selected_particle.landmarks_observation_count[idx]} | Cov={np.diag([cov[0][0], cov[1][1]])} | Pos={mean[0][0]:.1f}, {mean[1][0]:.1f} | Uncertainty={uncertainty:.1f}")
+                print(f"Landmark {selected_particle.landmarks_id[idx]}: Obs={selected_particle.landmarks_observation_count[idx]} | Cov={np.diag([cov[0][0], cov[1][1]])} | Pos={mean[0][0]:.1f}, {mean[1][0]:.1f} | Uncertainty={uncertainty:.1f}","\n")
         pygame.display.update()
 
     pygame.quit()

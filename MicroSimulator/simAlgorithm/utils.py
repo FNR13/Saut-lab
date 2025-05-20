@@ -4,8 +4,8 @@ import numpy as np
 import pygame
 
 def wrap_angle_rad(angle):
-    """Wrap angle to [-π, π)"""
-    return (angle + math.pi) % (2 * math.pi) - math.pi
+    """Wrap angle to [0, 2π)"""
+    return angle % (2 * math.pi)
 
 def draw_fastslam_particles(particles, win, color=(0, 0, 255)):
     """Draw all particles in the FastSLAM algorithm."""

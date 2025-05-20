@@ -7,20 +7,26 @@ from utils import wrap_angle_rad
 class ExtendedKalmanFilter:
     def __init__(self, initial_landmark_position, initial_landmark_covariances, Q_cov):
 
-        self.landmark_position   = initial_landmark_position    # np (x,y) positions of the landmark
-        self.landmark_covariances = initial_landmark_covariances # np Matrix of covariance of the landmark
-        self.Q_cov                = Q_cov               # Matrix of measurement noise covariance for range and bearing
+        self.landmark_position    = initial_landmark_position.reshape(2,1)    # np (x,y) positions of the landmark
+        self.landmark_covariances = initial_landmark_covariances.reshape(2,2) # np Matrix of covariance of the landmark
+        self.Q_cov                = Q_cov.reshape(2,2)                        # Matrix of measurement noise covariance for range and bearing
 
     # There is no predic step in the EKF for landmarks, as landmarks are static
 
     def update(self, measurement, pose):
-        z = measurement.reshape(2, 1)
-
+        """
+        Update the landmark position and covariance using the EKF update step.
+        Parameters:
+        - measurement: (2x1 np.array) the actual measurement [range, bearing]
+        - pose: (3x1 np.array) the robot pose [x, y, theta]
+        """
+        
+        # Reshape the measurement to ensure it's a column vector"
+        z = measurement.reshape(2, 1)  
         zp, Hv, Hf, Sf = compute_jacobians(pose, self.landmark_position, self.landmark_covariances, self.Q_cov)
 
         # Distance from the linearization point
         dz = z - zp
-        print(dz)
         dz[1] = wrap_angle_rad(dz[1])
 
         xf, Pf = update_kf_with_cholesky(self.landmark_position, self.landmark_covariances, dz, self.Q_cov, Hf)
@@ -50,8 +56,8 @@ def compute_jacobians(pose, xf, Pf, Q_cov):
     theta = pose[2]
 
     # Difference in x and y between landmark and robot
-    dx = xf[0] - x
-    dy = xf[1] - y
+    dx = xf[0][0] - x
+    dy = xf[1][0] - y
 
     # Squared and actual distance
     d2 = dx ** 2 + dy ** 2
@@ -106,14 +112,44 @@ def update_kf_with_cholesky(xf, Pf, v, Q_cov, Hf):
     W1 = PHt @ s_chol_inv               # Intermediate step for Kalman gain
     W = W1 @ s_chol_inv.T               # Kalman gain
 
-    print(np.shape(v))
     x = xf + W @ v                      # Updated landmark mean
     P = Pf - W1 @ W1.T                  # Updated landmark covariance
 
     return x, P
 
+def test_ekf():
+    import numpy as np
 
+    # True landmark position (used to generate the measurement)
+    true_landmark_position = np.array([2.0, 3.0])
 
+    # Initial guess for the landmark position (intentionally different)
+    initial_landmark_position = np.array([1.5, 2.5])
 
+    initial_landmark_covariances = np.eye(2) * 1.0
+    Q_cov = np.diag([0.5, np.deg2rad(10)])  # Measurement noise
 
-        
+    # Create EKF object with the initial guess
+    ekf = ExtendedKalmanFilter(initial_landmark_position, initial_landmark_covariances, Q_cov)
+
+    # Simulated robot pose (x, y, theta)
+    pose = np.array([1.0, 2.0, np.deg2rad(30)])
+
+    # Simulated measurement: [range, bearing] from robot to the TRUE landmark
+    measurement = np.array([
+        np.linalg.norm(true_landmark_position - pose[:2]),
+        np.arctan2(true_landmark_position[1] - pose[1], true_landmark_position[0] - pose[0]) - pose[2]
+    ])
+
+    print("Before update:")
+    print("Landmark position:", ekf.landmark_position, '\n')
+    print("Landmark covariance:\n", ekf.landmark_covariances)
+
+    ekf.update(measurement, pose)
+
+    print("\nAfter update:")
+    print("Landmark position:", ekf.landmark_position)
+    print("Landmark covariance:\n", ekf.landmark_covariances)
+
+if __name__ == "__main__":
+    test_ekf()

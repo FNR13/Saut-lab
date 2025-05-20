@@ -2,6 +2,7 @@ import math
 import numpy as np
 
 from simAlgorithm.particle import Particle
+# from particle import Particle # For debugging
 
 from utils import wrap_angle_rad
 
@@ -14,17 +15,13 @@ class FastSLAM:
         # Particle Filter parameters
         self.num_particles = num_particles
 
-        self.particles_odometry_uncertanty = particles_odometry_uncertanty
-        self.landmarks_initial_uncertenty = landmarks_initial_uncertenty
-
-        self.Q_cov = Q_cov  # Measurement noise covariance for range and bearing
-
-        self.particles = self._init_particles()
+        self.particles = self._init_particles(
+            particles_odometry_uncertanty, landmarks_initial_uncertenty, Q_cov)
 
     # Particle Filter Management
-    def _init_particles(self):
+    def _init_particles(self,particles_odometry_uncertanty, landmarks_initial_uncertenty, Q_cov):
         return [
-            Particle(self.particles_odometry_uncertanty, self.landmarks_initial_uncertenty, self.Q_cov)
+            Particle(particles_odometry_uncertanty, landmarks_initial_uncertenty, Q_cov)
             for _ in range(self.num_particles)
         ]
 
@@ -37,8 +34,8 @@ class FastSLAM:
 
         for observation in z_all:
 
-            marker_id = observation[1]
-            z = np.array(observation[:2]).reshape(2, 1)
+            marker_id = observation[0]
+            z = np.array(observation[1:3]).reshape(2, 1)
 
             for particle in self.particles:
                 particle.landmark_update(marker_id, z)
@@ -101,3 +98,79 @@ class FastSLAM:
             total_weight = 1e-8
         for p in self.particles:
             p.weight /= total_weight
+
+
+def test_fastslam():
+    import numpy as np
+
+    # Initial robot pose
+    robot_initial_pose = [0.0, 0.0, 0.0]
+    num_particles = 3
+    particles_odometry_uncertanty = (0.1, 0.01)  # (speed, angular rate)
+    landmarks_initial_uncertanty = 10  # Initial uncertainty for landmarks
+    Q_cov = np.diag([20.0, np.radians(30)])  # Measurement noise for fast slam - for range and bearing
+
+    # Create FastSLAM object
+    slam = FastSLAM(robot_initial_pose, num_particles, particles_odometry_uncertanty, landmarks_initial_uncertanty, Q_cov)
+
+    # Simulate motion update
+    v = 1
+    omega = 0
+    dt = 1.0
+
+    robot_initial_pose[0] += v * math.cos(robot_initial_pose[2]) * dt
+    robot_initial_pose[1] += v * math.sin(robot_initial_pose[2])* dt
+    robot_initial_pose[1] += omega * dt
+
+    slam.predict_particles(v, omega, dt)
+    
+    print("After motion update:")
+    for i, p in enumerate(slam.particles):
+        print(f"Particle {i}: x={p.x:.2f}, y={p.y:.2f}, theta={p.theta:.2f}")
+
+    # First landmark observation (with noise)
+    marker_id = 1
+    true_landmark = np.array([2.0, 1.0])
+    z_all = []
+
+    # Real system camera feed
+    dx = true_landmark[0] - robot_initial_pose[0]
+    dy = true_landmark[1] - robot_initial_pose[1]
+
+    range = math.hypot(dx, dy)
+    bearing = wrap_angle_rad(math.atan2(dy, dx) - robot_initial_pose[2])
+
+    z_all.append([marker_id, range, bearing])
+    slam.observation_update(z_all)
+
+    print("\nFirst landmark observation (using observation_update):")
+    for i, p in enumerate(slam.particles):
+        print(f"Particle {i} landmark positions: {p.landmarks_position}")
+
+    # Second landmark observation (with new noise)
+    z_all = []
+
+    # Real system camera feed
+    dx = true_landmark[0] - robot_initial_pose[0]
+    dy = true_landmark[1] - robot_initial_pose[1]
+
+    range = math.hypot(dx, dy)
+    bearing = wrap_angle_rad(math.atan2(dy, dx) - robot_initial_pose[2])
+
+    z_all.append([marker_id, range, bearing])
+    slam.observation_update(z_all)
+
+    print("\nSecond landmark observation (using observation_update):")
+    for i, p in enumerate(slam.particles):
+        print(f"Particle {i} landmark positions: {p.landmarks_position}")
+
+    # Estimate final state
+    x_est = slam.calc_final_state()
+    print("\nEstimated state (weighted mean):", x_est.flatten())
+
+    # Get best particle
+    best = slam.get_best_particle()
+    print("Best particle pose:", best.x, best.y, best.theta)
+
+if __name__ == "__main__":
+    test_fastslam()
