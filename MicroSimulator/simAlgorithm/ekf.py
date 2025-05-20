@@ -1,17 +1,40 @@
 import math
 import numpy as np
 
-import pygame
-
 from utils import wrap_angle_rad
 
-def compute_jacobians(robot, xf, Pf, Q_cov):
+
+class ExtendedKalmanFilter:
+    def __init__(self, initial_landmark_position, initial_landmark_covariances, Q_cov):
+
+        self.landmark_position   = initial_landmark_position    # np (x,y) positions of the landmark
+        self.landmark_covariances = initial_landmark_covariances # np Matrix of covariance of the landmark
+        self.Q_cov                = Q_cov               # Matrix of measurement noise covariance for range and bearing
+
+    # There is no predic step in the EKF for landmarks, as landmarks are static
+
+    def update(self, measurement, pose):
+        z = measurement.reshape(2, 1)
+
+        zp, Hv, Hf, Sf = compute_jacobians(pose, self.landmark_position, self.landmark_covariances, self.Q_cov)
+
+        # Distance from the linearization point
+        dz = z - zp
+        print(dz)
+        dz[1] = wrap_angle_rad(dz[1])
+
+        xf, Pf = update_kf_with_cholesky(self.landmark_position, self.landmark_covariances, dz, self.Q_cov, Hf)
+
+        self.landmark_position = xf
+        self.landmark_covariances = Pf
+            
+def compute_jacobians(pose, xf, Pf, Q_cov):
     """
     Robot7Particles are the mesurments therfore noise is expected
     Compute expected measurement, Jacobians, and innovation covariance for EKF update.
     
     Parameters:
-    - robot: the robot object with x, y, theta (pose)
+    - pose: the robot object with x, y, theta 
     - xf: landmark mean position as a 2x1 numpy array [[x], [y]]
     - Pf: 2x2 covariance matrix of the landmark
     - Q_cov: 2x2 measurement noise covariance (sensor noise)
@@ -22,10 +45,13 @@ def compute_jacobians(robot, xf, Pf, Q_cov):
     - Hf: 2x2 Jacobian of the measurement w.r.t. landmark position
     - Sf: 2x2 innovation covariance matrix
     """
+    x = pose[0]
+    y = pose[1]
+    theta = pose[2]
 
     # Difference in x and y between landmark and robot
-    dx = xf[0, 0] - robot.x
-    dy = xf[1, 0] - robot.y
+    dx = xf[0] - x
+    dy = xf[1] - y
 
     # Squared and actual distance
     d2 = dx ** 2 + dy ** 2
@@ -34,7 +60,7 @@ def compute_jacobians(robot, xf, Pf, Q_cov):
     # Predicted measurement: range and bearing
     zp = np.array([
         d,  # range
-        wrap_angle_rad(math.atan2(dy, dx) - robot.theta)  # bearing (angle between robot orientation and landmark)
+        wrap_angle_rad(math.atan2(dy, dx) - theta)  # bearing (angle between robot orientation and landmark)
     ]).reshape(2, 1)
 
     # Jacobian w.r.t. robot pose [x, y, theta]
@@ -80,40 +106,14 @@ def update_kf_with_cholesky(xf, Pf, v, Q_cov, Hf):
     W1 = PHt @ s_chol_inv               # Intermediate step for Kalman gain
     W = W1 @ s_chol_inv.T               # Kalman gain
 
+    print(np.shape(v))
     x = xf + W @ v                      # Updated landmark mean
     P = Pf - W1 @ W1.T                  # Updated landmark covariance
 
     return x, P
 
-def update_landmark(robot, z, Q_cov):
-    lm_id = int(z[2])
-    xf = np.array(robot.lm[lm_id, :]).reshape(2, 1)
-    Pf = np.array(robot.lmP[2 * lm_id:2 * lm_id + 2, :])
 
-    zp, Hv, Hf, Sf = compute_jacobians(robot, xf, Pf, Q_cov)
 
-    dz = z[0:2].reshape(2, 1) - zp
-    dz[1, 0] = wrap_angle_rad(dz[1, 0])
 
-    xf, Pf = update_kf_with_cholesky(xf, Pf, dz, Q_cov, Hf)
-
-    robot.lm[lm_id, :] = xf.T
-    robot.lmP[2 * lm_id:2 * lm_id + 2, :] = Pf
-
-    return robot
-
-def draw_covariance_ellipse(win, mean, cov, color=(255, 0, 0), scale=2.0):
-    eigenvals, eigenvecs = np.linalg.eig(cov)
-    order = eigenvals.argsort()[::-1]
-    eigenvals, eigenvecs = eigenvals[order], eigenvecs[:, order]
-
-    angle = math.degrees(math.atan2(eigenvecs[1, 0], eigenvecs[0, 0]))
-    width, height = 2 * scale * np.sqrt(eigenvals)
-
-    ellipse_surf = pygame.Surface((width, height), pygame.SRCALPHA)
-    pygame.draw.ellipse(ellipse_surf, (*color, 100), (0, 0, width, height))
-    ellipse_rot = pygame.transform.rotate(ellipse_surf, -angle)
-    rect = ellipse_rot.get_rect(center=(mean[0], mean[1]))
-    win.blit(ellipse_rot, rect) 
 
         

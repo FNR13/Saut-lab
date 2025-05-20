@@ -1,4 +1,5 @@
 import pygame
+
 import math
 
 class CarSensor:
@@ -36,6 +37,15 @@ class CarSensor:
         # Return points in order (rear_left, front_left, front_right, rear_right)
         return [rear_left, front_left, front_right, rear_right]
 
+    def draw(self, win, robot_pos, robot_theta):
+        polygon = self.compute_trapezoid(robot_pos[0], robot_pos[1], robot_theta)
+        pygame.draw.polygon(
+            win, self.color,
+            [(int(p[0]), int(p[1])) for p in polygon], 2
+        )
+
+# -----------------------------------------------------------------------------------------------------------------------------
+    # Check for landmark code
     def point_in_polygon(self, point, polygon):
         x, y = point
         inside = False
@@ -56,9 +66,3 @@ class CarSensor:
                 visible.append(pos)
         return visible
 
-    def draw(self, win, robot_pos, robot_theta):
-        polygon = self.compute_trapezoid(robot_pos[0], robot_pos[1], robot_theta)
-        pygame.draw.polygon(
-            win, self.color,
-            [(int(p[0]), int(p[1])) for p in polygon], 2
-        )

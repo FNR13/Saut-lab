@@ -1,6 +1,6 @@
-import math
-
 import pygame
+
+import math
 
 from utils import wrap_angle_rad
 
@@ -23,6 +23,7 @@ class Envo:
         self.text = self.font.render('default',True,self.white,self.black)
         self.textrect = self.text.get_rect()
         self.textrect.center=(dimensions[1]-175, dimensions[0]-500)
+        
         self.traj_set=[]
 
     def write (self, velL, velR, theta):

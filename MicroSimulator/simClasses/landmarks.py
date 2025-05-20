@@ -1,7 +1,6 @@
-import math
-import numpy as np
-
 import pygame
+
+import math
 import random
 
 
@@ -55,24 +54,4 @@ class Landmarks:
     def get_positions(self):
         return self.positions
     
-    def get_id_and_positions(self, noise_std=0):
-        """
-        Returns a list of (id, noisy_position) tuples.
-        
-        Parameters:
-            noise_std (float or tuple): Standard deviation for Gaussian noise.
-                                        If float, applies equally to x and y.
-                                        If tuple, expected as (std_x, std_y).
-        """
-        if isinstance(noise_std, (int, float)):
-            std_x = std_y = noise_std
-        else:
-            std_x, std_y = noise_std
-    
-        noisy_positions = []
-        for i, (x, y) in enumerate(self.positions):
-            noisy_x = x + np.random.normal(0, std_x)
-            noisy_y = y + np.random.normal(0, std_y)
-            noisy_positions.append((i, (noisy_x, noisy_y)))
-        
-        return noisy_positions
+
