@@ -4,8 +4,8 @@ import numpy as np
 import pygame
 
 def wrap_angle_rad(angle):
-    """Wrap angle to [-π, π)"""
-    return (angle + math.pi) % (2 * math.pi) - math.pi
+    """Wrap angle to [0, 2π)"""
+    return angle % (2 * math.pi)
 
 def draw_fastslam_particles(particles, win, color=(0, 0, 255)):
     """Draw all particles in the FastSLAM algorithm."""
@@ -16,6 +16,7 @@ def draw_fastslam_particles(particles, win, color=(0, 0, 255)):
         pygame.draw.circle(win, color, pos, 3)      # main colored dot
 
 def draw_covariance_ellipse(win, mean, cov, color=(255, 0, 0), scale=2.0, min_size=5.0):
+    print('draw_covariance_ellipse')
     eigenvals, eigenvecs = np.linalg.eig(cov)
     order = eigenvals.argsort()[::-1]
     eigenvals, eigenvecs = eigenvals[order], eigenvecs[:, order]
