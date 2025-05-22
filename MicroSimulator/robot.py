@@ -8,7 +8,7 @@ class Robot:
         self.wd = width
         self.x = startpoint[0]
         self.y = startpoint[1]
-        self.theta = 0
+        self.theta =  startpoint[2]
         self.velL = 0.01 * self.met2pix
         self.velR = 0.01 * self.met2pix
         self.max = 0.05 * self.met2pix

@@ -44,7 +44,6 @@ class Particle:
             self.landmarks_EKF[idx].update(z, pose) #PUEDE SER QUE ESTE METIENDO LA POSE DEL ROBOT Y NO EL INDICADOR PARA SABER LA MEDIA
             self.landmarks_position[idx] = self.landmarks_EKF[idx].landmark_position
             self.landmarks_position_covariance[idx] = self.landmarks_EKF[idx].landmark_covariances
-            #print()
             self.landmarks_observation_count[idx] += 1
             self.weight *= self.compute_weight(marker_id, z, pose)
 

@@ -40,7 +40,6 @@ class FastSLAM:
             z = np.array(observation[1:]).reshape(2, 1)
 
             for particle in self.particles:
-                print(marker_id)
                 particle.landmark_update(marker_id, z)
 
 
@@ -54,11 +53,15 @@ class FastSLAM:
         c = weights[0]                     # Cumulative sum
         i = 0
         new_particles = []
+        self.resampled_indexes = []
+
         for m in range(N):
             U = r + m * (1.0 / N)
             while U > c:
                 i += 1
                 c += weights[i]
+
+            self.resampled_indexes.append(i) #List with the resampled indexes 
             p = self.particles[i]
             new_p = type(p)(
                 p.odometry_noise, 
@@ -92,7 +95,8 @@ class FastSLAM:
         return x_est
 
     def get_best_particle(self):
-        return max(self.particles, key=lambda p: p.weight)
+        best_particle = max(self.particles, key=lambda p: p.weight)
+        return best_particle
     
 
     def normalize_weight(self):

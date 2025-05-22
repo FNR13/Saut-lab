@@ -1,6 +1,10 @@
 import math
 import numpy as np
 import matplotlib.pyplot as plt
+from scipy.spatial import procrustes
+from scipy.linalg import orthogonal_procrustes
+
+import copy
 
 import pygame
 
@@ -15,7 +19,7 @@ from fastslam import FastSLAM
 
 def main():
 
-    robot_initial_pose = (400, 200, 0)
+    robot_initial_pose = (0, 0, 0)
 
     # FastSLAM initialization
     N_PARTICLES = 100
@@ -44,7 +48,7 @@ def main():
     dim = (1200, 800)
     env = Envo(dim)
 
-    rob = Robot((robot_initial_pose[0], robot_initial_pose[1]), "Robot.png", 0.01 * 3779.52)
+    rob = Robot((robot_initial_pose[0], robot_initial_pose[1], robot_initial_pose[2]), "Robot.png", 0.01 * 3779.52)
 
     sensor = CarSensor(
         car_width=rob.wd,
@@ -54,6 +58,8 @@ def main():
     )
 
     landmarks = Landmarks(num_landmarks=10, window_size=(dim[0], dim[1]))
+
+    real_positions = landmarks.get_positions()
 
     clock = pygame.time.Clock()
     dt = 0
@@ -128,6 +134,9 @@ def main():
         if z_all:   
             fastslam.observation_update(z_all)
             fastslam.resampling()
+
+            # Resampling the same particles as the original set
+            resampled_idx = fastslam.resampled_indexes
         # ----------
 
         # Draw the best particle
@@ -135,6 +144,33 @@ def main():
         draw_fastslam_particles([selected_particle], env.win, color=(255, 0, 255))  # Magenta
 
         if selected_particle.landmarks_id:
+            
+            # Set we want totransform (landmarks estimated position)
+            B = selected_particle.landmarks_position 
+            B = np.array([b.flatten() for b in B])
+
+            # Set we want to convert to (real landmarks position)
+            A = [] #Real Positions
+
+            for id in selected_particle.landmarks_id:
+                A.append(real_positions[id])    
+
+            A = np.array(A)
+            
+            A_mean = A.mean(axis=0)
+            B_mean = B.mean(axis=0)
+            A_centered = A - A_mean
+            B_centered = B - B_mean
+
+            # Find best rotation
+            R, _ = orthogonal_procrustes(B_centered, A_centered)
+
+            # Apply rotation to B
+            B_rotated = B_centered @ R
+
+            # Translate to the A coordenates origin 
+            B_aligned = B_rotated + A_mean
+            
             for marker_id in selected_particle.landmarks_id:
 
                 # get index of the landmark from the list
@@ -142,6 +178,18 @@ def main():
 
                 mean = selected_particle.landmarks_position[idx]
                 cov = selected_particle.landmarks_position_covariance[idx]
+
+                mean_flat = mean.flatten()  
+                aux = np.where((B == mean_flat).all(axis=1))[0]
+                mean_2 = B_aligned[aux,:]
+                mean_2 = mean_2.reshape(-1)
+
+                print('A',A)
+                print('B',B)
+                print('B_aligned',B_aligned)
+                print('mean',mean)
+                print('aux',aux)
+                print('mean_2',mean_2)
 
                 uncertainty = np.mean(np.diag(cov[:2, :2]))
 
@@ -153,12 +201,17 @@ def main():
                     color = (255, 0, 0)
 
                 draw_covariance_ellipse(env.win, mean, cov, color=color)
+                draw_covariance_ellipse(env.win, mean_2, cov, color=(0,0,0))
+                
 
                 font = pygame.font.SysFont(None, 16)
                 txt = font.render(f"{uncertainty:.1f}", True, (0, 0, 0))
                 env.win.blit(txt, (mean[0][0] + 5, mean[1][0] - 5))
+                env.win.blit(txt, (mean_2[0] + 5, mean_2[1] - 5))
 
                 print(f"Landmark {selected_particle.landmarks_id[idx]}: Obs={selected_particle.landmarks_observation_count[idx]} | Cov={np.diag([cov[0][0], cov[1][1]])} | Pos={mean[0][0]:.1f}, {mean[1][0]:.1f} | Uncertainty={uncertainty:.1f}")
+        
+                
         pygame.display.update()
 
     pygame.quit()
