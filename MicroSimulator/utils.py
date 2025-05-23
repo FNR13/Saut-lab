@@ -16,7 +16,6 @@ def draw_fastslam_particles(particles, win, color=(0, 0, 255)):
         pygame.draw.circle(win, color, pos, 3)      # main colored dot
 
 def draw_covariance_ellipse(win, mean, cov, color=(255, 0, 0), scale=2.0, min_size=5.0):
-    print('draw_covariance_ellipse')
     eigenvals, eigenvecs = np.linalg.eig(cov)
     order = eigenvals.argsort()[::-1]
     eigenvals, eigenvecs = eigenvals[order], eigenvecs[:, order]
@@ -35,4 +34,12 @@ def draw_covariance_ellipse(win, mean, cov, color=(255, 0, 0), scale=2.0, min_si
     rect = ellipse_rot.get_rect(center=(mean[0], mean[1]))
     win.blit(ellipse_rot, rect)
 
+def update_paths(paths, new_pose):
+    '''Add the last pose of each particle to its path'''
+    return np.concatenate((paths, new_pose), axis=1)
 
+def resample_paths(paths,indexes):
+    '''Resample the particles with replacement'''
+    # Resampling 
+    paths = paths[indexes, :, :]
+    return paths

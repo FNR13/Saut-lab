@@ -19,6 +19,9 @@ class FastSLAM:
         self.Q_cov = Q_cov  # Measurement noise covariance for range and bearing
 
         self.particles = self._init_particles()
+        self.resampled_indexes = [] #list containing the resampled indexes 
+        self.best_index = 0
+
 
     # Particle Filter Management
     def _init_particles(self):
@@ -47,8 +50,8 @@ class FastSLAM:
         self.normalize_weight()
 
         N = self.num_particles
-        weights = np.array([p.weight for p in self.particles])
-
+        weights = np.array([p.weight for p in self.particles]) #Normalized weights
+        #print('weights',weights)
         r = np.random.uniform(0, 1.0 / N)  # Random offset
         c = weights[0]                     # Cumulative sum
         i = 0
@@ -83,6 +86,8 @@ class FastSLAM:
 
             new_particles.append(new_p)
         self.particles = new_particles
+        #print('indexes',self.resampled_indexes)
+
     
     def calc_final_state(self):
         x_est = np.zeros((3, 1))
@@ -95,9 +100,7 @@ class FastSLAM:
         return x_est
 
     def get_best_particle(self):
-        best_particle = max(self.particles, key=lambda p: p.weight)
-        return best_particle
-    
+        return max(self.particles, key=lambda p: p.weight)
 
     def normalize_weight(self):
         total_weight = sum(p.weight for p in self.particles)

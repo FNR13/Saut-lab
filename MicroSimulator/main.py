@@ -1,14 +1,12 @@
 import math
 import numpy as np
 import matplotlib.pyplot as plt
-from scipy.spatial import procrustes
 from scipy.linalg import orthogonal_procrustes
-
-import copy
 
 import pygame
 
-from utils import wrap_angle_rad, draw_fastslam_particles, draw_covariance_ellipse
+from utils import wrap_angle_rad, draw_fastslam_particles, draw_covariance_ellipse, update_paths, resample_paths
+
 
 from robot import Robot
 from carSensor import CarSensor
@@ -19,7 +17,7 @@ from fastslam import FastSLAM
 
 def main():
 
-    robot_initial_pose = (0, 0, 0)
+    robot_initial_pose = (200, 200, -math.pi/2)
 
     # FastSLAM initialization
     N_PARTICLES = 100
@@ -34,6 +32,9 @@ def main():
         landmarks_initial_uncertanty,
         Q_cov,
     )
+
+    # Array for saving all paths
+    paths = np.zeros((N_PARTICLES,1,3),dtype=float)
     
     # Noise implementations
     use_camera_noise = False
@@ -61,12 +62,14 @@ def main():
 
     real_positions = landmarks.get_positions()
 
+    B = 0
+    best_path = 0
+
     clock = pygame.time.Clock()
     dt = 0
 
     # -----------------------------------------------------------------------------------------------------------------------------
     # Loop
-
     run = True
     while run:
         for event in pygame.event.get():
@@ -130,18 +133,32 @@ def main():
         # --- Motion update 
         fastslam.predict_particles(velocity, omega, dt)
 
+        new_pose = np.zeros((N_PARTICLES,1,3),dtype=float)
+        for i, particle in enumerate(fastslam.particles):
+            particle_pose = np.array([particle.x,particle.y,particle.theta])
+            new_pose[i,0,:] = particle_pose
+        
+        # Add the new pose to the path
+        paths = update_paths(paths, new_pose)
+
         # --- Observation update
         if z_all:   
             fastslam.observation_update(z_all)
             fastslam.resampling()
 
-            # Resampling the same particles as the original set
-            resampled_idx = fastslam.resampled_indexes
+            # Resample the paths in the same manner as the particles
+            paths = resample_paths(paths,fastslam.resampled_indexes)
         # ----------
 
         # Draw the best particle
         selected_particle = fastslam.get_best_particle()
-        draw_fastslam_particles([selected_particle], env.win, color=(255, 0, 255))  # Magenta
+        #print('selected',selected_particle)
+        best_path = fastslam.particles.index(selected_particle)
+        #print('BEST PATH 1',fastslam.particles.index(selected_particle))
+        #print('BEST PATH',best_path)
+
+
+        draw_fastslam_particles([selected_particle], env.win, color=(255, 0, 255))  # Magenta'''
 
         if selected_particle.landmarks_id:
             
@@ -184,12 +201,13 @@ def main():
                 mean_2 = B_aligned[aux,:]
                 mean_2 = mean_2.reshape(-1)
 
+                '''
                 print('A',A)
                 print('B',B)
                 print('B_aligned',B_aligned)
                 print('mean',mean)
                 print('aux',aux)
-                print('mean_2',mean_2)
+                print('mean_2',mean_2)'''
 
                 uncertainty = np.mean(np.diag(cov[:2, :2]))
 
@@ -199,7 +217,7 @@ def main():
                     color = (255, 165, 0)
                 else:
                     color = (255, 0, 0)
-
+                
                 draw_covariance_ellipse(env.win, mean, cov, color=color)
                 draw_covariance_ellipse(env.win, mean_2, cov, color=(0,0,0))
                 
@@ -209,12 +227,25 @@ def main():
                 env.win.blit(txt, (mean[0][0] + 5, mean[1][0] - 5))
                 env.win.blit(txt, (mean_2[0] + 5, mean_2[1] - 5))
 
-                print(f"Landmark {selected_particle.landmarks_id[idx]}: Obs={selected_particle.landmarks_observation_count[idx]} | Cov={np.diag([cov[0][0], cov[1][1]])} | Pos={mean[0][0]:.1f}, {mean[1][0]:.1f} | Uncertainty={uncertainty:.1f}")
+                #print(f"Landmark {selected_particle.landmarks_id[idx]}: Obs={selected_particle.landmarks_observation_count[idx]} | Cov={np.diag([cov[0][0], cov[1][1]])} | Pos={mean[0][0]:.1f}, {mean[1][0]:.1f} | Uncertainty={uncertainty:.1f}")
         
                 
         pygame.display.update()
-
     pygame.quit()
+    
+    print('B',B)
+    print('Shape',B.shape[0])
+    x_mapped = B[:, 0]
+    y_mapped = -B[:, 1]
+    print(best_path)
+    plt.plot(paths[best_path,:,0],-paths[best_path,:,1], label='Most probable path')
+    plt.scatter(x_mapped, y_mapped, c='red', marker='x', label='Landmarks estimation')
+    plt.title('FastSLAM')
+    plt.xlabel('X')
+    plt.ylabel('Y')
+    plt.legend()
+    plt.show()
+   
 
 if __name__ == "__main__":
     main()

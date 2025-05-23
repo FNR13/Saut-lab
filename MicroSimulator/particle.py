@@ -41,7 +41,7 @@ class Particle:
 
             pose = np.array([self.x, self.y, self.theta]).reshape(3, 1)
 
-            self.landmarks_EKF[idx].update(z, pose) #PUEDE SER QUE ESTE METIENDO LA POSE DEL ROBOT Y NO EL INDICADOR PARA SABER LA MEDIA
+            self.landmarks_EKF[idx].update(z, pose) 
             self.landmarks_position[idx] = self.landmarks_EKF[idx].landmark_position
             self.landmarks_position_covariance[idx] = self.landmarks_EKF[idx].landmark_covariances
             self.landmarks_observation_count[idx] += 1
