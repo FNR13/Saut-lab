@@ -17,12 +17,13 @@ from fastslam import FastSLAM
 
 def main():
 
-    robot_initial_pose = (200, 200, -math.pi/2)
+    # robot_initial_pose = (200, 200, -math.pi/2)
+    robot_initial_pose = (0, 0, 0)
 
     # FastSLAM initialization
     N_PARTICLES = 100
     particles_odometry_uncertanty = (0.001, 0.05)  # (speed, anngular rate)
-    landmarks_initial_uncertanty = 100  # Initial uncertainty for landmarks
+    landmarks_initial_uncertanty = 10  # Initial uncertainty for landmarks
     Q_cov = np.diag([20.0, np.radians(30)])  # Measurement noise for fast slam - for range and bearing
     
     fastslam = FastSLAM(
@@ -100,7 +101,7 @@ def main():
         # Gather observations: z = [landmark_id, range, bearing]
         z_all = []
         for idx, pos in enumerate(landmarks.get_positions()):
-            pygame.draw.circle(env.win, (255, 0, 0), (int(pos[0]), int(pos[1])), 4)  # ground truth
+            # pygame.draw.circle(env.win, (255, 0, 0), (int(pos[0]), int(pos[1])), 4)  # ground truth
 
             if pos in visible_landmarks:
                 
@@ -130,7 +131,8 @@ def main():
 
         # ----------
         # FastSLAM step
-        # --- Motion update 
+        # ----------
+        # Motion update 
         fastslam.predict_particles(velocity, omega, dt)
 
         new_pose = np.zeros((N_PARTICLES,1,3),dtype=float)
@@ -152,17 +154,15 @@ def main():
 
         # Draw the best particle
         selected_particle = fastslam.get_best_particle()
-        #print('selected',selected_particle)
+        draw_fastslam_particles([selected_particle], env.win, color=(255, 0, 255))  # Magenta'''
+
         best_path = fastslam.particles.index(selected_particle)
         #print('BEST PATH 1',fastslam.particles.index(selected_particle))
         #print('BEST PATH',best_path)
 
-
-        draw_fastslam_particles([selected_particle], env.win, color=(255, 0, 255))  # Magenta'''
-
         if selected_particle.landmarks_id:
             
-            # Set we want totransform (landmarks estimated position)
+            # Set we want to transform (landmarks estimated position)
             B = selected_particle.landmarks_position 
             B = np.array([b.flatten() for b in B])
 
@@ -194,12 +194,13 @@ def main():
                 idx = selected_particle.landmarks_id.index(marker_id)
 
                 mean = selected_particle.landmarks_position[idx]
+
                 cov = selected_particle.landmarks_position_covariance[idx]
 
-                mean_flat = mean.flatten()  
-                aux = np.where((B == mean_flat).all(axis=1))[0]
-                mean_2 = B_aligned[aux,:]
-                mean_2 = mean_2.reshape(-1)
+                # mean_flat = mean.flatten()  
+                # aux = np.where((B == mean_flat).all(axis=1))[0]
+                # mean_2 = B_aligned[aux,:]
+                # mean_2 = mean_2.reshape(-1)
 
                 '''
                 print('A',A)
@@ -218,16 +219,15 @@ def main():
                 else:
                     color = (255, 0, 0)
                 
-                draw_covariance_ellipse(env.win, mean, cov, color=color)
-                draw_covariance_ellipse(env.win, mean_2, cov, color=(0,0,0))
-                
+                # draw_covariance_ellipse(env.win, mean, cov, color=color)
+                # draw_covariance_ellipse(env.win, mean_2, cov, color=(0,0,0))
 
                 font = pygame.font.SysFont(None, 16)
                 txt = font.render(f"{uncertainty:.1f}", True, (0, 0, 0))
                 env.win.blit(txt, (mean[0][0] + 5, mean[1][0] - 5))
-                env.win.blit(txt, (mean_2[0] + 5, mean_2[1] - 5))
+                # env.win.blit(txt, (mean_2[0] + 5, mean_2[1] - 5))
 
-                #print(f"Landmark {selected_particle.landmarks_id[idx]}: Obs={selected_particle.landmarks_observation_count[idx]} | Cov={np.diag([cov[0][0], cov[1][1]])} | Pos={mean[0][0]:.1f}, {mean[1][0]:.1f} | Uncertainty={uncertainty:.1f}")
+                # print(f"Landmark {selected_particle.landmarks_id[idx]}: Obs={selected_particle.landmarks_observation_count[idx]} | Cov={np.diag([cov[0][0], cov[1][1]])} | Pos={mean[0][0]:.1f}, {mean[1][0]:.1f} | Uncertainty={uncertainty:.1f}")
         
                 
         pygame.display.update()

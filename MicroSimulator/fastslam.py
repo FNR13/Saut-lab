@@ -108,3 +108,84 @@ class FastSLAM:
             total_weight = 1e-8
         for p in self.particles:
             p.weight /= total_weight
+
+def test_fastslam():
+    import numpy as np
+
+    # Initial robot pose
+    robot_initial_pose = [0.0, 0.0, 0.0]
+    num_particles = 3
+    particles_odometry_uncertanty = (0.1, 0.01)  # (speed, angular rate)
+    landmarks_initial_uncertanty = 10  # Initial uncertainty for landmarks
+    Q_cov = np.diag([20.0, np.radians(30)])  # Measurement noise for fast slam - for range and bearing
+
+    # Create FastSLAM object
+    slam = FastSLAM(robot_initial_pose, num_particles, particles_odometry_uncertanty, landmarks_initial_uncertanty, Q_cov)
+
+    # Simulate motion update
+    v = 1
+    omega = 0
+    dt = 1.0
+
+    robot_initial_pose[0] += v * math.cos(robot_initial_pose[2]) * dt
+    robot_initial_pose[1] += v * math.sin(robot_initial_pose[2]) * dt
+    robot_initial_pose[2] += omega * dt
+
+    slam.predict_particles(v, omega, dt)
+    
+    print("After motion update:")
+    for i, p in enumerate(slam.particles):
+        print(f"Particle {i}: x={p.x:.2f}, y={p.y:.2f}, theta={p.theta:.2f}")
+
+    # --- First landmark observation (with noise), observed twice ---
+    marker_id_1 = 1
+    true_landmark_1 = np.array([2.0, 1.0])
+
+    for obs_num in range(2):
+        z_all = []
+        dx = true_landmark_1[0] - robot_initial_pose[0]
+        dy = true_landmark_1[1] - robot_initial_pose[1]
+        range_ = math.hypot(dx, dy) + np.random.normal(0, 0.2)
+        bearing = wrap_angle_rad(math.atan2(dy, dx) - robot_initial_pose[2] + np.random.normal(0, np.radians(5)))
+        z_all.append([marker_id_1, range_, bearing])
+        slam.observation_update(z_all)
+        print(f"\nLandmark 1 observation {obs_num+1}:")
+        for i, p in enumerate(slam.particles):
+            print(f"Particle {i} landmark positions: {p.landmarks_position}")
+
+    # --- Second landmark observation (with noise), observed twice ---
+    marker_id_2 = 2
+    true_landmark_2 = np.array([1.0, 3.0])
+
+    for obs_num in range(2):
+        z_all = []
+        dx = true_landmark_2[0] - robot_initial_pose[0]
+        dy = true_landmark_2[1] - robot_initial_pose[1]
+        range_ = math.hypot(dx, dy) + np.random.normal(0, 0.2)
+        bearing = wrap_angle_rad(math.atan2(dy, dx) - robot_initial_pose[2] + np.random.normal(0, np.radians(5)))
+        z_all.append([marker_id_2, range_, bearing])
+        slam.observation_update(z_all)
+        print(f"\nLandmark 2 observation {obs_num+1}:")
+        for i, p in enumerate(slam.particles):
+            print(f"Particle {i} landmark positions: {p.landmarks_position}")
+
+    marker_id = 1
+    particle = slam.particles[0]  # or any particle
+
+    if marker_id in particle.landmarks_id:
+        idx = particle.landmarks_id.index(marker_id)
+        landmark1_pos = particle.landmarks_position[idx]
+        print("Landmark 1 position:", landmark1_pos)
+    else:
+        print("Landmark 1 not observed by this particle.")
+        
+    # Estimate final state
+    x_est = slam.calc_final_state()
+    print("\nEstimated state (weighted mean):", x_est.flatten())
+
+    # Get best particle
+    best = slam.get_best_particle()
+    print("Best particle pose:", best.x, best.y, best.theta)
+
+if __name__ == "__main__":
+    test_fastslam()
