@@ -32,7 +32,6 @@ def draw_covariance_ellipse(win, mean, cov, color=(255, 0, 0), scale=2.0, min_si
     
     ellipse_rot = pygame.transform.rotate(ellipse_surf, -angle)
     
-    print("test: ", mean[0], mean[1])
     rect = ellipse_rot.get_rect(center=(mean[0], mean[1]))
     win.blit(ellipse_rot, rect)
 

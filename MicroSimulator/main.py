@@ -101,7 +101,7 @@ def main():
         # Gather observations: z = [landmark_id, range, bearing]
         z_all = []
         for idx, pos in enumerate(landmarks.get_positions()):
-            # pygame.draw.circle(env.win, (255, 0, 0), (int(pos[0]), int(pos[1])), 4)  # ground truth
+            pygame.draw.circle(env.win, (255, 0, 0), (int(pos[0]), int(pos[1])), 4)  # ground truth
 
             if pos in visible_landmarks:
                 
@@ -197,10 +197,10 @@ def main():
 
                 cov = selected_particle.landmarks_position_covariance[idx]
 
-                # mean_flat = mean.flatten()  
-                # aux = np.where((B == mean_flat).all(axis=1))[0]
-                # mean_2 = B_aligned[aux,:]
-                # mean_2 = mean_2.reshape(-1)
+                mean_flat = mean.flatten()  
+                aux = np.where((B == mean_flat).all(axis=1))[0]
+                mean_2 = B_aligned[aux,:]
+                mean_2 = mean_2.reshape(-1)
 
                 '''
                 print('A',A)
@@ -219,13 +219,13 @@ def main():
                 else:
                     color = (255, 0, 0)
                 
-                # draw_covariance_ellipse(env.win, mean, cov, color=color)
-                # draw_covariance_ellipse(env.win, mean_2, cov, color=(0,0,0))
+                draw_covariance_ellipse(env.win, mean, cov, color=color)
+                draw_covariance_ellipse(env.win, mean_2, cov, color=(0,0,0))
 
                 font = pygame.font.SysFont(None, 16)
                 txt = font.render(f"{uncertainty:.1f}", True, (0, 0, 0))
                 env.win.blit(txt, (mean[0][0] + 5, mean[1][0] - 5))
-                # env.win.blit(txt, (mean_2[0] + 5, mean_2[1] - 5))
+                env.win.blit(txt, (mean_2[0] + 5, mean_2[1] - 5))
 
                 # print(f"Landmark {selected_particle.landmarks_id[idx]}: Obs={selected_particle.landmarks_observation_count[idx]} | Cov={np.diag([cov[0][0], cov[1][1]])} | Pos={mean[0][0]:.1f}, {mean[1][0]:.1f} | Uncertainty={uncertainty:.1f}")
         
