@@ -28,7 +28,7 @@ class Particle:
         omega += np.random.normal(0, self.odometry_noise[1])
     
         self.x += v * math.cos(self.theta) * dt
-        self.y -= v * math.sin(self.theta) * dt
+        self.y += v * math.sin(self.theta) * dt
         self.theta += omega * dt
     
     
@@ -37,7 +37,7 @@ class Particle:
         if marker_id in self.landmarks_id:
 
             # get index of the landmark from the list
-            idx = self.landmarks_id.index(marker_id) #Does it have sense? Is not the marker id the same as the idx?
+            idx = self.landmarks_id.index(marker_id) 
 
             pose = np.array([self.x, self.y, self.theta]).reshape(3, 1)
 
@@ -45,7 +45,7 @@ class Particle:
             self.landmarks_position[idx] = self.landmarks_EKF[idx].landmark_position  # Change the landmark to a 1x2 array
             self.landmarks_position_covariance[idx] = self.landmarks_EKF[idx].landmark_covariances
             self.landmarks_observation_count[idx] += 1
-            self.weight *= self.compute_weight(marker_id, z, pose)
+            self.weight *= self.compute_weight(idx, z, pose)
 
         else:
             # Add new landmark            
@@ -70,10 +70,10 @@ class Particle:
             self.landmarks_EKF.append(newKalmanFilter)
             
 
-    def compute_weight(self, marker_id, z, pose):
+    def compute_weight(self, idx, z, pose):
+            
             z = z.reshape(2, 1)
 
-            idx = self.landmarks_id.index(marker_id)
             xf = self.landmarks_EKF[idx].landmark_position
             Pf = self.landmarks_EKF[idx].landmark_covariances
 

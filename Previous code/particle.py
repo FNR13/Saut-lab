@@ -56,7 +56,7 @@ class Particle:
             c = math.cos(self.theta + bearing)
 
             landmark_x = self.x + range * c
-            landmark_y = self.y - range * s
+            landmark_y = self.y + range * s
             
             landmark_Position = np.array([landmark_x, landmark_y])
             landmark_position_covariance = np.array([[self.landmark_uncertanty, 0], [0, self.landmark_uncertanty]])
@@ -71,6 +71,9 @@ class Particle:
             
 
     def compute_weight(self, idx, z, pose):
+            
+            z = z.reshape(2, 1)
+            idx = self.landmarks_id.index(idx)
             
             xf = self.landmarks_EKF[idx].landmark_position
             Pf = self.landmarks_EKF[idx].landmark_covariances

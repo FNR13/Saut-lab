@@ -8,6 +8,7 @@ import pygame
 
 from utils import wrap_angle_rad, draw_fastslam_particles, draw_covariance_ellipse, update_paths, resample_paths, draw_ellipse
 
+
 from robot import Robot
 from carSensor import CarSensor
 from env import Envo
@@ -17,14 +18,15 @@ from fastslam import FastSLAM
 
 def main():
 
-    # robot_initial_pose = (200, 200, -math.pi/2)
-    robot_initial_pose = (0, 0, 0)
+    robot_initial_pose = (200, 200, -math.pi/2)
+    #robot_initial_pose = (0, 0,  0)
+
 
     # FastSLAM initialization
     N_PARTICLES = 100
     particles_odometry_uncertanty = (0.001, 0.05)  # (speed, anngular rate)
-    landmarks_initial_uncertanty = 10  # Initial uncertainty for landmarks
-    Q_cov = np.diag([20.0, np.radians(30)])  # Measurement noise for fast slam - for range and bearing
+    landmarks_initial_uncertanty = 100  # Initial uncertainty for landmarks
+    Q_cov = np.diag([20.0, np.radians(30)])  # Measurement noise for fast slam - for distance and bearing
     
     fastslam = FastSLAM(
         robot_initial_pose,
@@ -64,8 +66,8 @@ def main():
     real_positions = landmarks.get_positions()
 
     B = 0
-    best_path = 0
     landmarks_uncertainty = 0
+    best_path = 0
 
     clock = pygame.time.Clock()
     dt = 0
@@ -113,7 +115,7 @@ def main():
                 dy = pos[1] - rob.y
 
                 distance = math.hypot(dx, dy) #it was range in previous versions but range is an internal functionfro python 
-                bearing = wrap_angle_rad(math.atan2(dy, dx) - rob.theta)
+                bearing = wrap_angle_rad(math.atan2(dy, dx) + rob.theta)
 
                 # Add noise
                 if use_camera_noise:
@@ -132,8 +134,7 @@ def main():
 
         # ----------
         # FastSLAM step
-        # ----------
-        # Motion update 
+        # --- Motion update 
         fastslam.predict_particles(velocity, omega, dt)
 
         new_pose = np.zeros((N_PARTICLES,1,3),dtype=float)
@@ -218,7 +219,7 @@ def main():
                 env.win.blit(txt, (mean[0][0] + 5, mean[1][0] - 5))
                 env.win.blit(txt, (mean_2[0] + 5, mean_2[1] - 5))
 
-                # print(f"Landmark {selected_particle.landmarks_id[idx]}: Obs={selected_particle.landmarks_observation_count[idx]} | Cov={np.diag([cov[0][0], cov[1][1]])} | Pos={mean[0][0]:.1f}, {mean[1][0]:.1f} | Uncertainty={uncertainty:.1f}")
+                print(f"Landmark {selected_particle.landmarks_id[idx]}: Obs={selected_particle.landmarks_observation_count[idx]} | Cov={np.diag([cov[0][0], cov[1][1]])} | Pos={mean[0][0]:.1f}, {mean[1][0]:.1f} | Uncertainty={uncertainty:.1f}")
         
                 
         pygame.display.update()
@@ -239,12 +240,21 @@ def main():
         plt.xlabel('X')
         plt.ylabel('Y')
         plt.legend(loc = 'best')
+        '''
+        x_min, x_max = ax.get_xlim()
+        y_min, y_max = ax.get_ylim()
+
+        min_total = min(x_min, y_min)
+        max_total = max(x_max, y_max)
+
+        ax.set_xlim(min_total, max_total)
+        ax.set_ylim(min_total, max_total)
+        ax.set_aspect('equal')'''
+
         plt.show()
 
     else:
         print('No landmarks seen') 
-
-   
 
 if __name__ == "__main__":
     main()
