@@ -18,7 +18,7 @@ from fastslam import FastSLAM
 def main():
 
     # robot_initial_pose = (200, 200, -math.pi/2)
-    robot_initial_pose = (0, 0, 0)
+    robot_initial_pose = (500, 200, -math.pi/2)
 
     # FastSLAM initialization
     N_PARTICLES = 100
