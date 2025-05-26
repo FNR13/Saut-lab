@@ -31,8 +31,8 @@ for topic, msg, t in bag.read_messages(topics=['/fiducial_transforms']):
     observations = []
     for transform in msg.transforms:
         fiducial_id = transform.fiducial_id
-        tx = - transform.transform.translation.x
-        ty = - transform.transform.translation.y
+        tx = transform.transform.translation.x
+        ty = transform.transform.translation.y
         tz = transform.transform.translation.z
         observations.append([fiducial_id, tx, ty, tz])
     obs_data.append([t.to_sec(), observations])

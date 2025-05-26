@@ -15,7 +15,8 @@ def main():
     bag_file = '/home/ricardo/saut/bags/lab2testWithId.bag'
     time, x, y, theta, velocity_vector, omega_vector, obs_data = read_bag_data(bag_file)
 
-    print("Observations data: ", omega_vector)
+    # print("Observations data: ", omega_vector)
+    
     # FastSLAM initialization
     robot_initial_pose = (0, 0, 0)
 

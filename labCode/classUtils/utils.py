@@ -108,7 +108,7 @@ def read_bag_data(bag_file):
         observations = []
         for transform in msg.transforms:
             fiducial_id = transform.fiducial_id
-            tx = - transform.transform.translation.x
+            tx = transform.transform.translation.x
             ty = transform.transform.translation.y
             tz = transform.transform.translation.z
             observations.append([fiducial_id, tx, ty, tz])
