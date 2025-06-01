@@ -18,13 +18,15 @@ from classAlgorithm.fastslam import FastSLAM
 def main():
 
     # robot_initial_pose = (200, 200, -math.pi/2)
-    robot_initial_pose = (500, 200, -math.pi/2)
+    robot_initial_pose = (0, 0, 0)
+    gt_path = []  
+
 
     # FastSLAM initialization
     N_PARTICLES = 100
     particles_odometry_uncertainty = (0.001, 0.05)  # (speed, anngular rate)
     landmarks_initial_uncertainty = 10  # Initial uncertainty for landmarks
-    Q_cov = np.diag([20.0, np.radians(30)])  # Measurement noise for fast slam - for range and bearing
+    Q_cov = np.diag([20.0, np.radians(30)]) # Measurement noise for fast slam - for range and bearing
     
     fastslam = FastSLAM(
         robot_initial_pose,
@@ -84,6 +86,7 @@ def main():
         rob.update_kinematics(dt)
 
         dt = clock.tick(60) / 1000.0  # delta time in seconds
+        gt_path.append((rob.x, rob.y))
 
         # Draw Simulation objects
         env.win.fill(env.white)
@@ -117,8 +120,8 @@ def main():
 
                 # Add noise
                 if use_camera_noise:
-                    distance =+ np.random.normal(0, distance_noise_power) 
-                    bearing =+ np.random.normal(0, bearing_noise_power) 
+                    distance += np.random.normal(0, distance_noise_power) 
+                    bearing += np.random.normal(0, bearing_noise_power) 
 
                 z_all.append([marker_id, distance, bearing])
         
@@ -224,25 +227,31 @@ def main():
         pygame.display.update()
     pygame.quit()
     
-    # Draw the most probable path and the estimated landmark positions 
     if isinstance(B, np.ndarray):
-
         fig, ax = plt.subplots()
-        plt.plot(paths[best_path,:,0],-paths[best_path,:,1], label='Most probable path')
+        
+        # Most probable FastSLAM trajectory
+        plt.plot(paths[best_path,:,0], -paths[best_path,:,1], label='Most Probable Path')
+        
+        # Ground truth robot path
+        gt_path = np.array(gt_path)
+        plt.plot(gt_path[:, 0], -gt_path[:, 1], 'r--', label='Ground Truth Path')
+    
+        # Landmarks and uncertainty ellipses
         for i in range(len(landmarks_uncertainty)):
             ellipse = draw_ellipse(ax, B[i,:], landmarks_uncertainty[i])
-            label = 'Estimated landmarks' if i == 0 else None
-            if label:
-                ellipse.set_label(label)
-        
+            if i == 0:
+                ellipse.set_label('Estimated Landmarks')
+    
         plt.title('FastSLAM')
         plt.xlabel('X')
         plt.ylabel('Y')
-        plt.legend(loc = 'best')
+        plt.legend(loc='best')
+        plt.grid()
+        plt.axis('equal')
         plt.show()
-
     else:
-        print('No landmarks seen') 
+        print('No landmarks seen')
 
    
 

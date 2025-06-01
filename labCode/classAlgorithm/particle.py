@@ -1,9 +1,30 @@
 import math
 import numpy as np
 
-from .ekf import ExtendedKalmanFilter, compute_jacobians
+try:
+    # Relative import for normal package usage
+    from .ekf import ExtendedKalmanFilter, compute_jacobians
 
-from classUtils.utils import wrap_angle_rad
+except ImportError:
+    # Absolute import fallback for direct script testing
+    from ekf import ExtendedKalmanFilter, compute_jacobians
+
+try:
+    # Relative import for normal package usage
+    from classUtils.utils import wrap_angle_rad
+
+except ModuleNotFoundError:
+    # Absolute import fallback for direct script testing
+    import sys
+    import os
+    sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+
+    from classUtils.utils import wrap_angle_rad
+
+
+# from .ekf import ExtendedKalmanFilter, compute_jacobians
+# from classUtils.utils import wrap_angle_rad
+
 
 class Particle:
     def __init__(self, odometry_uncertainty, landmark_uncertainty, Q_cov):
@@ -98,7 +119,6 @@ class Particle:
 
 def test_particle():
     import numpy as np
-    from ekf import ExtendedKalmanFilter
 
     # Create a particle with some uncertainty
     odometry_uncertainty = (0.01, 0.01)

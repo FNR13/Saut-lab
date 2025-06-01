@@ -2,9 +2,25 @@ import math
 import numpy as np
 import copy
 
-from .particle import Particle
+# Debugging imports
+try:
+    # Relative import for normal package usage
+    from .particle import Particle
+except ImportError:
+    # Absolute import fallback for direct script testing
+    from particle import Particle
 
-from classUtils.utils import wrap_angle_rad
+try:
+    # Relative import for normal package usage
+    from classUtils.utils import wrap_angle_rad
+    
+except ModuleNotFoundError:
+    # Absolute import fallback for direct script testing
+    import sys
+    import os
+    sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+
+    from classUtils.utils import wrap_angle_rad
 
 
 class FastSLAM:
@@ -188,5 +204,39 @@ def test_fastslam():
     best = slam.get_best_particle()
     print("Best particle pose:", best.x, best.y, best.theta)
 
+def test_resampling():
+    print("Testing resampling...")
+
+    # Create FastSLAM with 5 particles
+    slam = FastSLAM([0,0,0], 5, (0.1, 0.01), 10, np.eye(2))
+
+    # Assign distinct weights
+    for i, p in enumerate(slam.particles):
+        p.weight = i + 1  # weights: 1, 2, 3, 4, 5
+
+    # Normalize weights
+    slam.normalize_weight()
+    print("Weights before resampling:", [p.weight for p in slam.particles])
+
+    # Save original particle IDs (using id() or add a custom attribute)
+    original_ids = [id(p) for p in slam.particles]
+
+    # Perform resampling
+    slam.resampling()
+
+    # Check which original particles were selected
+    new_ids = [id(p) for p in slam.particles]
+    print("Original IDs:", original_ids)
+    print("New IDs after resampling:", new_ids)
+    print("Resampled indexes:", slam.resampled_indexes)
+
+    # Count how many times each original particle was selected
+    from collections import Counter
+    counts = Counter(slam.resampled_indexes)
+    print("Selection counts:", counts)
+
 if __name__ == "__main__":
-    test_fastslam()
+    test_resampling()
+
+# if __name__ == "__main__":
+#     test_fastslam()

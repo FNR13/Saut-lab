@@ -1,8 +1,17 @@
 import math
 import numpy as np
 
-from classUtils.utils import wrap_angle_rad
+try:
+    # Relative import for normal package usage
+    from classUtils.utils import wrap_angle_rad
 
+except ModuleNotFoundError:
+    # Absolute import fallback for direct script testing
+    import sys
+    import os
+    sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+
+    from classUtils.utils import wrap_angle_rad
 
 class ExtendedKalmanFilter:
     def __init__(self, initial_landmark_position, initial_landmark_covariances, Q_cov):

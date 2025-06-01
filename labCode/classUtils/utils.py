@@ -2,6 +2,8 @@ import math
 import numpy as np
 from matplotlib.patches import Ellipse
 
+from scipy.linalg import orthogonal_procrustes
+
 import pygame
 
 import rosbag
@@ -88,6 +90,30 @@ def draw_ellipse(ax, mean, cov, scale=2.0, min_size=5.0, color='0.7'):
     
     return ellipse #Necessary to write the label in the final map
 
+def align_by_centroid_and_pca(estimated, real):
+    
+    real = np.array([b.flatten() for b in real])
+    estimated = np.array([b.flatten() for b in estimated])
+    
+    # Center both sets
+    real_center = real.mean(axis=0)
+    est_center = estimated.mean(axis=0)
+    print(est_center, real_center)
+
+    real_centered = real - real_center
+    estimated_centered = estimated - est_center
+        
+    # Find best rotation
+    R, _ = orthogonal_procrustes(estimated_centered, real_centered)
+
+    # Apply rotation to estimated
+    estimated_rotated = estimated_centered @ R
+
+    # Translate to the real coordenates origin 
+    estimated_aligned = estimated_rotated + real_center
+
+    return estimated_aligned
+
 def read_bag_data(bag_file):
     bag = rosbag.Bag(bag_file)
     pose_times = []
@@ -138,42 +164,6 @@ def read_bag_data(bag_file):
     return obs_times, interp_x, interp_y, interp_orientation_z, interp_linear_x, interp_angular_z, obs_data
 
 
-def draw_ellipse(ax, mean, cov, scale=2.0, min_size=5.0, color='0.7'):
-    """Draw covarice ellipses in final Map"""
 
-    eigenvals, eigenvecs = np.linalg.eig(cov)
-    order = eigenvals.argsort()[::-1]
-    eigenvals, eigenvecs = eigenvals[order], eigenvecs[:, order]
-
-    angle = math.degrees(math.atan2(eigenvecs[1, 0], eigenvecs[0, 0]))
-    
-    # Compute ellipse axes
-    width = max(min_size, 2 * scale * np.sqrt(eigenvals[0]))
-    height = max(min_size, 2 * scale * np.sqrt(eigenvals[1]))
-    
-    # Change the coordenate origin  
-    mean = mean.copy()
-    mean[-1] = -mean[-1]
-    #mean[0] = -mean[0]
-
-    # Create the ellipse
-    ellipse = Ellipse(xy=mean, width=width, height=height, angle=angle, edgecolor=(0,1,0),facecolor='none')
-    ax.add_patch(ellipse)
-
-    # Draw the mean 
-    axis_length1 = 0.5 * width
-    axis_length2 = 0.5 * height
-    dir1 = eigenvecs[:, 0] * axis_length1
-    dir2 = eigenvecs[:, 1] * axis_length2
-
-    ax.plot([mean[0] - dir1[0], mean[0] + dir1[0]], 
-            [mean[1] - dir1[1], mean[1] + dir1[1]],
-            color=color, linestyle='-', linewidth=0.5)
-
-    ax.plot([mean[0] - dir2[0], mean[0] + dir2[0]], 
-            [mean[1] - dir2[1], mean[1] + dir2[1]],
-            color=color, linestyle='-', linewidth=0.5)
-    
-    return ellipse #Necessary to write the label in the final map
 
 
