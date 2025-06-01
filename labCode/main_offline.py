@@ -48,8 +48,10 @@ def main():
         for j, particle in enumerate(fastslam.particles):
             particle_pose = np.array([particle.x, particle.y, particle.theta])
             new_pose[j, 0, :] = particle_pose
+        
+        # Add the new pose to the path
         paths = update_paths(paths, new_pose)
-
+        
         # Prepare observations for this timestep
         z_all = []
         for obs in obs_data[i][1]:
@@ -57,7 +59,7 @@ def main():
             # Convert to range and bearing relative to the robot pose
             # dx lateral distance(left/right is negative/positive), dz foward distance 
             rng = math.hypot(dz, dx)
-            bearing = wrap_angle_rad(math.atan2(dx, dz))
+            bearing = wrap_angle_rad(math.atan2(dx, dz)+theta[i])
             z_all.append([marker_id, rng, bearing])
 
         if z_all:
