@@ -8,12 +8,3 @@ rosrun camera_calibration cameracalibrator.py --size 8x6 --square 0.60 image:=/c
 
 /tmp/calibrationdata.tar.gz'
 
-IN pioneer:
-roscore
-rosrun p2os_driver p2os_driver _port:="/dev/ttyUSB0"
-
-In laptop:
-Launch camera and detection
-
-rosbag record /pose /cv_camera/image_raw/compressed /cv_camera/camera_info /fiducial_images /fiducial_transforms
-
