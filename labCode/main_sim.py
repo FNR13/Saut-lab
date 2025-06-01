@@ -17,8 +17,8 @@ from classAlgorithm.fastslam import FastSLAM
 
 def main():
 
-    # robot_initial_pose = (200, 200, -math.pi/2)
-    robot_initial_pose = (0, 0, 0)
+    robot_initial_pose = (200, 300, math.pi/2)
+    # robot_initial_pose = (0, 0, 0)
     gt_path = []  
 
 
@@ -214,12 +214,12 @@ def main():
                     color = (255, 0, 0)
                 
                 draw_covariance_ellipse(env.win, mean, cov, color=color)
-                draw_covariance_ellipse(env.win, mean_2, cov, color=(0,0,0))
+                draw_covariance_ellipse(env.win, mean_2, cov, color=(0,178,0))
 
                 font = pygame.font.SysFont(None, 16)
                 txt = font.render(f"{uncertainty:.1f}", True, (0, 0, 0))
                 env.win.blit(txt, (mean[0][0] + 5, mean[1][0] - 5))
-                env.win.blit(txt, (mean_2[0] + 5, mean_2[1] - 5))
+                env.win.blit(txt, (mean_2[0] + 10, mean_2[1] - 10))
 
                 # print(f"Landmark {selected_particle.landmarks_id[idx]}: Obs={selected_particle.landmarks_observation_count[idx]} | Cov={np.diag([cov[0][0], cov[1][1]])} | Pos={mean[0][0]:.1f}, {mean[1][0]:.1f} | Uncertainty={uncertainty:.1f}")
         
@@ -236,7 +236,12 @@ def main():
         # Ground truth robot path
         gt_path = np.array(gt_path)
         plt.plot(gt_path[:, 0], -gt_path[:, 1], 'r--', label='Ground Truth Path')
-    
+
+        for i in range(len(landmarks_uncertainty)):
+            ellipse = draw_ellipse(ax, B[i,:], landmarks_uncertainty[i])
+            if i == 0:
+                ellipse.set_label('Estimated Landmarks')
+
         # Landmarks and uncertainty ellipses
         for i in range(len(landmarks_uncertainty)):
             ellipse = draw_ellipse(ax, B[i,:], landmarks_uncertainty[i])

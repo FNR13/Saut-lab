@@ -7,7 +7,7 @@ from classUtils.utils import wrap_angle_rad, update_paths, resample_paths, read_
 from classAlgorithm.fastslam import FastSLAM
 
 def main():
-    bag_file = "../bags/L-30-05-2025.bag"
+    bag_file = "../bags/square1-30-05-2025.bag"
     time, x, y, theta, velocity_vector, omega_vector, obs_data = read_bag_data(bag_file)
     
     # FastSLAM initialization
