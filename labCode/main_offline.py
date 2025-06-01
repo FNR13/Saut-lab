@@ -7,7 +7,7 @@ import matplotlib.pyplot as plt
 from scipy.linalg import orthogonal_procrustes
 
 
-from classUtils.utils import wrap_angle_rad, update_paths, resample_paths, read_bag_data
+from classUtils.utils import wrap_angle_rad, update_paths, resample_paths, read_bag_data, draw_ellipse
 
 from classAlgorithm.fastslam import FastSLAM
 
@@ -59,7 +59,8 @@ def main():
             # Convert to range and bearing relative to the robot pose
             # dx lateral distance(left/right is negative/positive), dz foward distance 
             rng = math.hypot(dz, dx)
-            bearing = wrap_angle_rad(math.atan2(dx, dz)+theta[i])
+            #bearing = wrap_angle_rad(math.atan2(dx, dz)) #Before
+            bearing = wrap_angle_rad(math.atan2(dx, dz)+theta[i]) #Now
             z_all.append([marker_id, rng, bearing])
 
         if z_all:
@@ -70,17 +71,25 @@ def main():
     # Plotting results
     selected_particle = fastslam.get_best_particle()
     best_path = fastslam.particles.index(selected_particle)
+    landmarks_uncertainty = selected_particle.landmarks_position_covariance 
     B = selected_particle.landmarks_position
     B = np.array([b.flatten() for b in B])
-    x_mapped = B[:, 0]
-    y_mapped = -B[:, 1]
 
-    plt.plot(paths[best_path, :, 0], -paths[best_path, :, 1], label='Most probable path')
-    plt.scatter(x_mapped, y_mapped, c='red', marker='x', label='Landmarks estimation')
+    # Draw the most probable path and the estimated landmark positions 
+    if isinstance(B, np.ndarray):
+
+        fig, ax = plt.subplots()
+        plt.plot(paths[best_path,:,0],-paths[best_path,:,1], label='Most probable path')
+        for i in range(len(landmarks_uncertainty)):
+            ellipse = draw_ellipse(ax, B[i,:], landmarks_uncertainty[i])
+            label = 'Estimated landmarks' if i == 0 else None
+            if label:
+                ellipse.set_label(label)
+        
     plt.title('FastSLAM (Bag Data)')
     plt.xlabel('X')
     plt.ylabel('Y')
-    plt.legend()
+    plt.legend(loc = 'best')
     plt.show()
 
 if __name__ == "__main__":
