@@ -6,32 +6,36 @@ from matplotlib.patches import Ellipse
 
 import pygame
 
-from classUtils.utils import wrap_angle_rad, draw_fastslam_particles, draw_covariance_ellipse, update_paths, resample_paths, draw_ellipse
+from utils import wrap_angle_rad, draw_fastslam_particles, draw_covariance_ellipse, update_paths, resample_paths, draw_ellipse
 
-from classSimulation.robot import Robot
-from classSimulation.carSensor import CarSensor
-from classSimulation.env import Envo
-from classSimulation.landmarks import Landmarks
+from robot import Robot
+from carSensor import CarSensor
+from env import Envo
+from landmarks import Landmarks
 
-from classAlgorithm.fastslam import FastSLAM
+from fastslam import FastSLAM
 
 def main():
 
-    # robot_initial_pose = (200, 200, -math.pi/2)
-    robot_initial_pose = (500, 200, -math.pi/2)
+    #robot_initial_pose = (200, 200, -math.pi/2)
+    robot_initial_pose = (0, 0, 0)
 
     # FastSLAM initialization
     N_PARTICLES = 100
     particles_odometry_uncertainty = (0.001, 0.05)  # (speed, anngular rate)
-    landmarks_initial_uncertainty = 10  # Initial uncertainty for landmarks
-    Q_cov = np.diag([20.0, np.radians(30)])  # Measurement noise for fast slam - for range and bearing
-    
+    landmarks_initial_uncertainty = 100  # Initial uncertainty for landmarks
+    sensor_fov = 60 #vision range of the camera in º
+
+    #Q_cov = np.diag([20.0, np.radians(30)])  # Measurement noise for fast slam - for range and bearing
+    Q_cov = 20.0
+
     fastslam = FastSLAM(
         robot_initial_pose,
         N_PARTICLES,
         particles_odometry_uncertainty,
         landmarks_initial_uncertainty,
-        Q_cov,
+        Q_cov, 
+        sensor_fov,
     )
 
     # Array for saving all paths
@@ -40,7 +44,7 @@ def main():
     # Noise implementations
     use_camera_noise = False
     distance_noise_power = 20
-    bearing_noise_power = np.radians(5)
+    #bearing_noise_power = np.radians(5)
 
     use_odometry_noise = False
     odemetry_noise_power = 0.001
@@ -50,7 +54,7 @@ def main():
     dim = (1200, 800)
     env = Envo(dim)
 
-    rob = Robot((robot_initial_pose[0], robot_initial_pose[1], robot_initial_pose[2]), "media/Robot.png", 0.01 * 3779.52)
+    rob = Robot((robot_initial_pose[0], robot_initial_pose[1], robot_initial_pose[2]), "Robot.png", 0.01 * 3779.52)
 
     sensor = CarSensor(
         car_width=rob.wd,
@@ -113,14 +117,16 @@ def main():
                 dy = pos[1] - rob.y
 
                 distance = math.hypot(dx, dy) #it was range in previous versions but range is an internal functionfro python 
-                bearing = wrap_angle_rad(math.atan2(dy, dx) + rob.theta)
+                #bearing = wrap_angle_rad(math.atan2(dy, dx) + rob.theta)
 
                 # Add noise
                 if use_camera_noise:
-                    distance =+ np.random.normal(0, distance_noise_power) 
-                    bearing =+ np.random.normal(0, bearing_noise_power) 
+                    distance += np.random.normal(0, distance_noise_power) 
+                    #bearing =+ np.random.normal(0, bearing_noise_power) 
 
-                z_all.append([marker_id, distance, bearing])
+                #z_all.append([marker_id, distance, bearing])
+                z_all.append([marker_id, distance])
+
         
         # Add noise to the odometry
         if use_odometry_noise:
@@ -197,6 +203,7 @@ def main():
                 cov = selected_particle.landmarks_position_covariance[idx]
 
                 mean_flat = mean.flatten()  
+                print('mean',mean)
                 aux = np.where((B == mean_flat).all(axis=1))[0]
                 mean_2 = B_aligned[aux,:]
                 mean_2 = mean_2.reshape(-1)
@@ -218,7 +225,7 @@ def main():
                 env.win.blit(txt, (mean[0][0] + 5, mean[1][0] - 5))
                 env.win.blit(txt, (mean_2[0] + 5, mean_2[1] - 5))
 
-                # print(f"Landmark {selected_particle.landmarks_id[idx]}: Obs={selected_particle.landmarks_observation_count[idx]} | Cov={np.diag([cov[0][0], cov[1][1]])} | Pos={mean[0][0]:.1f}, {mean[1][0]:.1f} | Uncertainty={uncertainty:.1f}")
+                print(f"Landmark {selected_particle.landmarks_id[idx]}: Obs={selected_particle.landmarks_observation_count[idx]} | Cov={np.diag([cov[0][0], cov[1][1]])} | Pos={mean[0][0]:.1f}, {mean[1][0]:.1f} | Uncertainty={uncertainty:.1f}")
         
                 
         pygame.display.update()

@@ -1,14 +1,13 @@
 import math
 import numpy as np
-import copy
 
-from .particle import Particle
+from particle import Particle
 
-from classUtils.utils import wrap_angle_rad
+from utils import wrap_angle_rad
 
 
 class FastSLAM:
-    def __init__(self, robot_initial_pose, num_particles, particles_odometry_uncertainty, landmarks_initial_uncertainty, Q_cov):
+    def __init__(self, robot_initial_pose, num_particles, particles_odometry_uncertainty, landmarks_initial_uncertainty, Q_cov, sensor_fov):
 
         self.robot_initial_pose = robot_initial_pose  # (x, y, theta)
 
@@ -16,6 +15,7 @@ class FastSLAM:
         self.num_particles = num_particles
         self.particles_odometry_uncertainty = particles_odometry_uncertainty
         self.landmarks_initial_uncertainty = landmarks_initial_uncertainty
+        self.sensor_fov = sensor_fov
 
         self.Q_cov = Q_cov  # Measurement noise covariance for range and bearing
 
@@ -27,7 +27,7 @@ class FastSLAM:
     # Particle Filter Management
     def _init_particles(self):
         return [
-            Particle(self.particles_odometry_uncertainty, self.landmarks_initial_uncertainty, self.Q_cov)
+            Particle(self.particles_odometry_uncertainty, self.landmarks_initial_uncertainty, self.Q_cov, self.sensor_fov)
             for _ in range(self.num_particles)
         ]
 
@@ -41,7 +41,8 @@ class FastSLAM:
         for observation in z_all:
 
             marker_id = observation[0]
-            z = np.array(observation[1:]).reshape(2, 1)
+            #z = np.array(observation[1:]).reshape(2, 1)
+            z = float(observation[1])
 
             for particle in self.particles:
                 particle.landmark_update(marker_id, z)
@@ -52,7 +53,7 @@ class FastSLAM:
 
         N = self.num_particles
         weights = np.array([p.weight for p in self.particles]) #Normalized weights
-        #print('weights',weights)
+
         r = np.random.uniform(0, 1.0 / N)  # Random offset
         c = weights[0]                     # Cumulative sum
         i = 0
@@ -70,7 +71,8 @@ class FastSLAM:
             new_p = type(p)(
                 p.odometry_noise, 
                 p.landmark_uncertainty, 
-                p.Q_cov
+                p.Q_cov,
+                p.sensor_fov_rad
             )
             # Copy pose and weight
             new_p.x = p.x
@@ -83,7 +85,7 @@ class FastSLAM:
             new_p.landmarks_position = [np.copy(pos) for pos in p.landmarks_position]
             new_p.landmarks_position_covariance = [np.copy(cov) for cov in p.landmarks_position_covariance]
             new_p.landmarks_observation_count = p.landmarks_observation_count.copy()
-            new_p.landmarks_EKF = [copy.deepcopy(ekf) for ekf in p.landmarks_EKF]
+            new_p.landmarks_EKF = [ekf for ekf in p.landmarks_EKF]
 
             new_particles.append(new_p)
         self.particles = new_particles
@@ -118,10 +120,12 @@ def test_fastslam():
     num_particles = 3
     particles_odometry_uncertainty = (0.1, 0.01)  # (speed, angular rate)
     landmarks_initial_uncertainty = 10  # Initial uncertainty for landmarks
-    Q_cov = np.diag([20.0, np.radians(30)])  # Measurement noise for fast slam - for range and bearing
+    #Q_cov = np.diag([20.0, np.radians(30)])  # Measurement noise for fast slam - for range and bearing
+    Q_cov = 20.0
+    sensor_fov = 60
 
     # Create FastSLAM object
-    slam = FastSLAM(robot_initial_pose, num_particles, particles_odometry_uncertainty, landmarks_initial_uncertainty, Q_cov)
+    slam = FastSLAM(robot_initial_pose, num_particles, particles_odometry_uncertainty, landmarks_initial_uncertainty, Q_cov, sensor_fov)
 
     # Simulate motion update
     v = 1
@@ -147,8 +151,9 @@ def test_fastslam():
         dx = true_landmark_1[0] - robot_initial_pose[0]
         dy = true_landmark_1[1] - robot_initial_pose[1]
         range_ = math.hypot(dx, dy) + np.random.normal(0, 0.2)
-        bearing = wrap_angle_rad(math.atan2(dy, dx) - robot_initial_pose[2] + np.random.normal(0, np.radians(5)))
-        z_all.append([marker_id_1, range_, bearing])
+        #bearing = wrap_angle_rad(math.atan2(dy, dx) - robot_initial_pose[2] + np.random.normal(0, np.radians(5)))
+        #z_all.append([marker_id_1, range_, bearing])
+        z_all.append([marker_id_1, range_])
         slam.observation_update(z_all)
         print(f"\nLandmark 1 observation {obs_num+1}:")
         for i, p in enumerate(slam.particles):
@@ -163,8 +168,9 @@ def test_fastslam():
         dx = true_landmark_2[0] - robot_initial_pose[0]
         dy = true_landmark_2[1] - robot_initial_pose[1]
         range_ = math.hypot(dx, dy) + np.random.normal(0, 0.2)
-        bearing = wrap_angle_rad(math.atan2(dy, dx) - robot_initial_pose[2] + np.random.normal(0, np.radians(5)))
-        z_all.append([marker_id_2, range_, bearing])
+        #bearing = wrap_angle_rad(math.atan2(dy, dx) - robot_initial_pose[2] + np.random.normal(0, np.radians(5)))
+        #z_all.append([marker_id_2, range_, bearing])
+        z_all.append([marker_id_2, range_])
         slam.observation_update(z_all)
         print(f"\nLandmark 2 observation {obs_num+1}:")
         for i, p in enumerate(slam.particles):
