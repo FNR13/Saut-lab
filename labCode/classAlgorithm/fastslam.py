@@ -1,5 +1,6 @@
 import math
 import numpy as np
+import copy
 
 from .particle import Particle
 
@@ -82,7 +83,7 @@ class FastSLAM:
             new_p.landmarks_position = [np.copy(pos) for pos in p.landmarks_position]
             new_p.landmarks_position_covariance = [np.copy(cov) for cov in p.landmarks_position_covariance]
             new_p.landmarks_observation_count = p.landmarks_observation_count.copy()
-            new_p.landmarks_EKF = [ekf for ekf in p.landmarks_EKF]
+            new_p.landmarks_EKF = [copy.deepcopy(ekf) for ekf in p.landmarks_EKF]
 
             new_particles.append(new_p)
         self.particles = new_particles
