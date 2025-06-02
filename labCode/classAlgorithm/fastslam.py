@@ -30,20 +30,18 @@ class FastSLAM:
 
         # Particle Filter parameters
         self.num_particles = num_particles
-        self.particles_odometry_uncertainty = particles_odometry_uncertainty
-        self.landmarks_initial_uncertainty = landmarks_initial_uncertainty
 
         self.Q_cov = Q_cov  # Measurement noise covariance for range and bearing
 
-        self.particles = self._init_particles()
+        self.particles = self._init_particles(particles_odometry_uncertainty, landmarks_initial_uncertainty)
         self.resampled_indexes = [] #list containing the resampled indexes 
         self.best_index = 0
 
 
     # Particle Filter Management
-    def _init_particles(self):
+    def _init_particles(self, particles_odometry_uncertainty, landmarks_initial_uncertainty):
         return [
-            Particle(self.particles_odometry_uncertainty, self.landmarks_initial_uncertainty, self.Q_cov)
+            Particle(particles_odometry_uncertainty, landmarks_initial_uncertainty, self.Q_cov)
             for _ in range(self.num_particles)
         ]
 

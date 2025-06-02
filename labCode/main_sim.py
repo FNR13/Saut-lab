@@ -1,12 +1,10 @@
 import math
 import numpy as np
 import matplotlib.pyplot as plt
-from scipy.linalg import orthogonal_procrustes
-from matplotlib.patches import Ellipse
 
 import pygame
 
-from classUtils.utils import wrap_angle_rad, draw_fastslam_particles, draw_covariance_ellipse, update_paths, resample_paths, draw_ellipse, rotate_path
+from classUtils.utils import *
 
 from classSimulation.robot import Robot
 from classSimulation.carSensor import CarSensor
@@ -19,8 +17,6 @@ def main():
 
     robot_initial_pose = (200, 300, math.pi/2)
     # robot_initial_pose = (0, 0, 0)
-    gt_path = []  
-
 
     # FastSLAM initialization
     N_PARTICLES = 100
@@ -36,16 +32,19 @@ def main():
         Q_cov,
     )
 
-    # Array for saving all paths
-    paths = np.zeros((N_PARTICLES,1,3),dtype=float)
-    
-    # Noise implementations
+        # Noise implementations
     use_camera_noise = False
     distance_noise_power = 20
     bearing_noise_power = np.radians(5)
 
     use_odometry_noise = True
     odemetry_noise_power = 0.05
+
+    # Gound truth path
+    gt_path = []  
+
+    # Array for saving all paths
+    paths = np.zeros((N_PARTICLES,1,3),dtype=float)
 
     # Simulation Initiations
     pygame.init()
@@ -62,12 +61,7 @@ def main():
     )
 
     landmarks = Landmarks(num_landmarks=10, window_size=(dim[0], dim[1]))
-
     real_positions = landmarks.get_positions()
-
-    B = 0
-    best_path = 0
-    landmarks_uncertainty = 0
 
     clock = pygame.time.Clock()
     dt = 0
@@ -86,7 +80,7 @@ def main():
         rob.update_kinematics(dt)
 
         dt = clock.tick(60) / 1000.0  # delta time in seconds
-        gt_path.append((rob.x-robot_initial_pose[0], rob.y-robot_initial_pose[1]))
+        gt_path.append((rob.x, rob.y))
 
         # Draw Simulation objects
         env.win.fill(env.white)
@@ -157,54 +151,35 @@ def main():
         # ----------
 
         # Draw the best particle
-        selected_particle = fastslam.get_best_particle()
-        best_path = fastslam.particles.index(selected_particle)
+        best_particle = fastslam.get_best_particle()
+        best_path = fastslam.particles.index(best_particle)
+        draw_fastslam_particles([best_particle], env.win, color=(255, 0, 255))  # Magenta'''
 
-        draw_fastslam_particles([selected_particle], env.win, color=(255, 0, 255))  # Magenta'''
-
-        if selected_particle.landmarks_id:
+        if best_particle.landmarks_id:
             
             # Set we want totransform (landmarks estimated position)
-            B = selected_particle.landmarks_position 
-            B = np.array([b.flatten() for b in B])
-            landmarks_uncertainty = selected_particle.landmarks_position_covariance 
-
             # Set we want to convert to (real landmarks position)
-            A = [] #Real Positions
+            identified_real_landmarks = [] #Real Positions
 
-            for id in selected_particle.landmarks_id:
-                A.append(real_positions[id])    
+            for id in best_particle.landmarks_id:
+                identified_real_landmarks.append(real_positions[id])    
 
-            A = np.array(A)
+            identified_real_landmarks = np.array(identified_real_landmarks)
+             
+            aligned_estimated_landmarks, estimated_center, real_center, Rotation = transform_landmarks(best_particle.landmarks_position, identified_real_landmarks)
             
-            A_mean = A.mean(axis=0)
-            B_mean = B.mean(axis=0)
-            A_centered = A - A_mean
-            B_centered = B - B_mean
-
-            # Find best rotation
-            R, _ = orthogonal_procrustes(B_centered, A_centered)
-
-            # Apply rotation to B
-            B_rotated = B_centered @ R
-
-            # Translate to the A coordenates origin 
-            B_aligned = B_rotated + A_mean
-            
-            for marker_id in selected_particle.landmarks_id:
+            for marker_id in best_particle.landmarks_id:
 
                 # get index of the landmark from the list
-                idx = selected_particle.landmarks_id.index(marker_id)
+                idx = best_particle.landmarks_id.index(marker_id)
 
-                mean = selected_particle.landmarks_position[idx]
-                cov = selected_particle.landmarks_position_covariance[idx]
+                mean_estimated = best_particle.landmarks_position[idx]
+                cov_estimated = best_particle.landmarks_position_covariance[idx] 
 
-                mean_flat = mean.flatten()  
-                aux = np.where((B == mean_flat).all(axis=1))[0]
-                mean_2 = B_aligned[aux,:]
-                mean_2 = mean_2.reshape(-1)
+                mean_alligned = aligned_estimated_landmarks[idx,:]
+                mean_alligned = mean_alligned.reshape(-1)
 
-                uncertainty = np.mean(np.diag(cov[:2, :2]))
+                uncertainty = np.mean(np.diag(cov_estimated[:2, :2]))
 
                 if uncertainty < 30:
                     color = (0, 255, 0)
@@ -213,13 +188,13 @@ def main():
                 else:
                     color = (255, 0, 0)
                 
-                draw_covariance_ellipse(env.win, mean, cov, color=color)
-                draw_covariance_ellipse(env.win, mean_2, cov, color=(0,178,0))
+                draw_covariance_ellipse(env.win, mean_estimated, cov_estimated, color=color)
+                draw_covariance_ellipse(env.win, mean_alligned, cov_estimated, color=(0,178,0))
 
                 font = pygame.font.SysFont(None, 16)
                 txt = font.render(f"{uncertainty:.1f}", True, (0, 0, 0))
-                env.win.blit(txt, (mean[0][0] + 5, mean[1][0] - 5))
-                env.win.blit(txt, (mean_2[0] + 10, mean_2[1] - 10))
+                env.win.blit(txt, (mean_estimated[0][0] + 5, mean_estimated[1][0] - 5))
+                env.win.blit(txt, (mean_alligned[0] + 10, mean_alligned[1] - 10))
 
                 # print(f"Landmark {selected_particle.landmarks_id[idx]}: Obs={selected_particle.landmarks_observation_count[idx]} | Cov={np.diag([cov[0][0], cov[1][1]])} | Pos={mean[0][0]:.1f}, {mean[1][0]:.1f} | Uncertainty={uncertainty:.1f}")
         
@@ -227,31 +202,76 @@ def main():
         pygame.display.update()
     pygame.quit()
     
-    if isinstance(B, np.ndarray):
+    if best_particle.landmarks_id:
         fig, ax = plt.subplots()
         
-        # Most probable FastSLAM trajectory
-        plt.plot(paths[best_path,:,0], -paths[best_path,:,1], label='Most Probable Path')
-        
-        # Ground truth robot path
+            # Note when plotting it is needed to convert the coordinates from (x, y) to (x, -y)
+
+        # Ground truth
+            # Path 
         gt_path = np.array(gt_path)
-        [x_rotated,y_rotated] = rotate_path(gt_path[:, 0], gt_path[:, 1], robot_initial_pose[2])
-        plt.plot(x_rotated,-y_rotated, 'r--', label='Ground Truth Path')
+        plt.plot(gt_path[:, 0], -gt_path[:, 1], 
+                 'r--', label='Ground Truth Path', linewidth=2)
+            # Landamrks
+        ax.scatter(identified_real_landmarks[:,0], -identified_real_landmarks[:,1],
+           facecolors='none', edgecolors='red', marker='o', label='Real Landmarks', linewidths=2)
+        
+        # Estimation
+            # Most probable FastSLAM trajectory
+        # Extract the most probable path (Nx2)
+        most_probable_path = paths[best_path, :, :2]
 
-        # Plot landmarks, trajectories, and odometry
-        #[ld_x_rotated,ld_y_rotated] = rotate_path(B[:, 0], B[:, 1], robot_initial_pose[2])
+        # Center the path using the same estimated_center as for landmarks
+        centered_path = most_probable_path - estimated_center
 
-        A_trans = np.column_stack((A[:,0]-robot_initial_pose[0], A[:,1]-robot_initial_pose[1]))
-        [ld_x_rotated, ld_y_rotated] = rotate_path(A_trans[:, 1], A_trans[:, 0], 0)
+        # Apply the same rotation and translation as for landmarks
+        # NOTE: IF just one landmark was seen, the rotation will be identity, so it won work
+        aligned_most_probable_path = (centered_path @ Rotation) + real_center
 
-        ax.scatter(-ld_x_rotated, -ld_y_rotated, c='blue', marker='x', label='Real Landmarks')
+        plt.plot(most_probable_path[:,0], -most_probable_path[:,1], 
+                 'green', label='Estimated Most Probable Path', linewidth=1)
+        plt.plot(aligned_most_probable_path[:,0], -aligned_most_probable_path[:,1], 
+                 'blue', label='Aligned Most Probable Path', linewidth=1)
+        
+        # Estimated landmarks
+            # Estimated landmarks with elipses
+        # for marker_id in best_particle.landmarks_id:
 
-        # Landmarks and uncertainty ellipses
-        for i in range(len(landmarks_uncertainty)):
-            ellipse = draw_ellipse(ax, selected_particle.landmarks_position[i], landmarks_uncertainty[i])
-            if i == 0:
-                ellipse.set_label('Estimated Landmarks')
-    
+        #         # get index of the landmark from the list
+        #         idx = best_particle.landmarks_id.index(marker_id)
+
+        #         mean_estimated = best_particle.landmarks_position[idx]
+        #         mean_estimated = [mean_estimated[0][0], -mean_estimated[1][0]] # Transform to (x, -y)
+
+        #         mean_alligned = aligned_estimated_landmarks[idx,:]
+        #         mean_alligned = mean_alligned.reshape(-1)
+        #         mean_alligned = [mean_alligned[0], -mean_alligned[1]] # Transform to (x, -y)
+
+        #         cov_estimated = best_particle.landmarks_position_covariance[idx] 
+        #         uncertainty = np.mean(np.diag(cov_estimated[:2, :2]))
+
+        #         if uncertainty < 30:
+        #             color = (0, 1, 0)
+        #         elif uncertainty < 80:
+        #             color = (1, 165/255, 0)
+        #         else:
+        #             color = (1, 0, 0)
+                
+        #         color_est = get_color_by_uncertainty(uncertainty, base='green')
+        #         color_aligned = get_color_by_uncertainty(uncertainty, base='blue')
+
+        #         draw_ellipse(ax, mean_estimated, cov_estimated, color=color_est)
+        #         draw_ellipse(ax, mean_alligned, cov_estimated, color=color_aligned)
+
+        # Estimated landmarks points
+        estimated = np.array([
+            [landmark[0][0], landmark[1][0]] for landmark in best_particle.landmarks_position])
+        aligned = np.array([
+            [landmark[0], landmark[1]] for landmark in aligned_estimated_landmarks])
+
+        ax.scatter(estimated[:, 0], -estimated[:, 1], marker='x', c='green', label='Estimated Landmarks')
+        ax.scatter(aligned[:, 0], -aligned[:, 1], marker='x', c='blue', label='Aligned Landmarks')
+
         plt.title('FastSLAM')
         plt.xlabel('X')
         plt.ylabel('Y')
@@ -266,3 +286,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+    
