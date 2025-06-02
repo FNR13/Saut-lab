@@ -6,7 +6,7 @@ from matplotlib.patches import Ellipse
 
 import pygame
 
-from classUtils.utils import wrap_angle_rad, draw_fastslam_particles, draw_covariance_ellipse, update_paths, resample_paths, draw_ellipse
+from classUtils.utils import wrap_angle_rad, draw_fastslam_particles, draw_covariance_ellipse, update_paths, resample_paths, draw_ellipse, rotate_path
 
 from classSimulation.robot import Robot
 from classSimulation.carSensor import CarSensor
@@ -44,8 +44,8 @@ def main():
     distance_noise_power = 20
     bearing_noise_power = np.radians(5)
 
-    use_odometry_noise = False
-    odemetry_noise_power = 0.001
+    use_odometry_noise = True
+    odemetry_noise_power = 0.05
 
     # Simulation Initiations
     pygame.init()
@@ -86,7 +86,7 @@ def main():
         rob.update_kinematics(dt)
 
         dt = clock.tick(60) / 1000.0  # delta time in seconds
-        gt_path.append((rob.x, rob.y))
+        gt_path.append((rob.x-robot_initial_pose[0], rob.y-robot_initial_pose[1]))
 
         # Draw Simulation objects
         env.win.fill(env.white)
@@ -235,16 +235,20 @@ def main():
         
         # Ground truth robot path
         gt_path = np.array(gt_path)
-        plt.plot(gt_path[:, 0], -gt_path[:, 1], 'r--', label='Ground Truth Path')
+        [x_rotated,y_rotated] = rotate_path(gt_path[:, 0], gt_path[:, 1], robot_initial_pose[2])
+        plt.plot(x_rotated,-y_rotated, 'r--', label='Ground Truth Path')
 
-        for i in range(len(landmarks_uncertainty)):
-            ellipse = draw_ellipse(ax, B[i,:], landmarks_uncertainty[i])
-            if i == 0:
-                ellipse.set_label('Estimated Landmarks')
+        # Plot landmarks, trajectories, and odometry
+        #[ld_x_rotated,ld_y_rotated] = rotate_path(B[:, 0], B[:, 1], robot_initial_pose[2])
+
+        A_trans = np.column_stack((A[:,0]-robot_initial_pose[0], A[:,1]-robot_initial_pose[1]))
+        [ld_x_rotated, ld_y_rotated] = rotate_path(A_trans[:, 1], A_trans[:, 0], 0)
+
+        ax.scatter(-ld_x_rotated, -ld_y_rotated, c='blue', marker='x', label='Real Landmarks')
 
         # Landmarks and uncertainty ellipses
         for i in range(len(landmarks_uncertainty)):
-            ellipse = draw_ellipse(ax, B[i,:], landmarks_uncertainty[i])
+            ellipse = draw_ellipse(ax, selected_particle.landmarks_position[i], landmarks_uncertainty[i])
             if i == 0:
                 ellipse.set_label('Estimated Landmarks')
     

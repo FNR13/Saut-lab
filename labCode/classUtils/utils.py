@@ -65,10 +65,10 @@ def draw_ellipse(ax, mean, cov, scale=2.0, min_size=5.0, color='0.7'):
     width = max(min_size, 2 * scale * np.sqrt(eigenvals[0]))
     height = max(min_size, 2 * scale * np.sqrt(eigenvals[1]))
     
-    # Change the coordenate origin  
-    mean = mean.copy()
-    mean[-1] = -mean[-1]
-    #mean[0] = -mean[0]
+    # # Change the coordenate origin  
+    # mean = mean.copy()
+    # mean[-1] = -mean[-1]
+    # mean[0] = mean[0]
 
     # Create the ellipse
     ellipse = Ellipse(xy=mean, width=width, height=height, angle=angle, edgecolor=(0,1,0),facecolor='none')
@@ -162,6 +162,39 @@ def read_bag_data(bag_file):
     interp_angular_z = np.interp(obs_times, pose_vectors[:, 0], pose_vectors[:, 5])
 
     return obs_times, interp_x, interp_y, interp_orientation_z, interp_linear_x, interp_angular_z, obs_data
+
+def rotate_path(x, y, theta):
+
+    # Use the coordinates origin as pivot 
+    cx, cy = x[0], y[0]
+
+    # Rotation matrix
+    cos_theta = math.cos(theta)
+    sin_theta = math.sin(theta)
+
+    x_rotated = []
+    y_rotated = []
+
+    for xi, yi in zip(x, y):
+        # Translate to origin with respect to the first point
+        x_tras = xi - cx
+        y_tras = yi - cy
+
+        # Apply rotation
+        x_rot = cos_theta * x_tras - sin_theta * y_tras
+        y_rot = sin_theta * x_tras + cos_theta * y_tras
+
+        # Translate again to the initial point as pivot
+        x_final = x_rot + cx
+        y_final = y_rot + cy
+
+        x_rotated.append(x_final)
+        y_rotated.append(y_final)
+
+    x_rotated = np.array(x_rotated)
+    y_rotated = np.array(y_rotated)
+
+    return x_rotated, y_rotated
 
 
 
