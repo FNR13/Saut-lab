@@ -21,7 +21,7 @@ class ExtendedKalmanFilter:
 
         # Distance from the linearization point
         dz = float(z - zp)
-        #dz[1] = wrap_angle_rad(dz[1])
+        #dz = wrap_angle_rad(z)
 
         xf, Pf = update_kf_with_cholesky(self.landmark_position, self.landmark_covariances, dz, self.Q_cov, Hf)
 

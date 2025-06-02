@@ -122,7 +122,7 @@ def main():
     estimated_landmarks_alligned = estimated_landmarks  # or use align_by_centroid_and_pca if desired
     ax1.scatter(estimated_landmarks_alligned[:, 0], estimated_landmarks_alligned[:, 1], c='orange', marker='x', label='Estimated landmarks')
 
-        # Plot uncertainty ellipses for landmarks
+    # Plot uncertainty ellipses for landmarks
     if isinstance(estimated_landmarks, np.ndarray):
         for i in range(len(landmarks_uncertainty)):
             ellipse = draw_ellipse(ax, estimated_landmarks[i, :], landmarks_uncertainty[i])

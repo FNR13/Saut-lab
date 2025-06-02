@@ -6,7 +6,7 @@ from matplotlib.patches import Ellipse
 
 import pygame
 
-from utils import wrap_angle_rad, draw_fastslam_particles, draw_covariance_ellipse, update_paths, resample_paths, draw_ellipse
+from utils import wrap_angle_rad, draw_fastslam_particles, draw_covariance_ellipse, update_paths, resample_paths, draw_ellipse, rotate_path
 
 from robot import Robot
 from carSensor import CarSensor
@@ -17,8 +17,8 @@ from fastslam import FastSLAM
 
 def main():
 
-    #robot_initial_pose = (200, 200, -math.pi/2)
-    robot_initial_pose = (0, 0, 0)
+    robot_initial_pose = (200, 200, -math.pi/2)
+    #robot_initial_pose = (0, 0, -math.pi/2)
 
     # FastSLAM initialization
     N_PARTICLES = 100
@@ -67,6 +67,7 @@ def main():
 
     real_positions = landmarks.get_positions()
 
+    gt_path = []  
     B = 0
     best_path = 0
     landmarks_uncertainty = 0
@@ -88,6 +89,7 @@ def main():
         rob.update_kinematics(dt)
 
         dt = clock.tick(60) / 1000.0  # delta time in seconds
+        gt_path.append((rob.x-robot_initial_pose[0], rob.y-robot_initial_pose[1]))
 
         # Draw Simulation objects
         env.win.fill(env.white)
@@ -231,25 +233,38 @@ def main():
         pygame.display.update()
     pygame.quit()
     
-    # Draw the most probable path and the estimated landmark positions 
     if isinstance(B, np.ndarray):
-
         fig, ax = plt.subplots()
-        plt.plot(paths[best_path,:,0],-paths[best_path,:,1], label='Most probable path')
+        
+        # Most probable FastSLAM trajectory
+        plt.plot(paths[best_path,:,0], -paths[best_path,:,1], label='Most Probable Path')
+        
+        # Ground truth robot path
+        gt_path = np.array(gt_path)
+        [x_rotated,y_rotated] = rotate_path(gt_path[:, 0], gt_path[:, 1], robot_initial_pose[2])
+        plt.plot(x_rotated,-y_rotated, 'r--', label='Ground Truth Path')
+
+        # Plot landmarks, trajectories, and odometry
+        [ld_x_rotated,ld_y_rotated] = rotate_path(A[:, 0], A[:, 1], robot_initial_pose[2])
+    
+        ax.scatter(ld_x_rotated, ld_y_rotated, c='green', marker='o', label='Real landmarks')
+
+        # Landmarks and uncertainty ellipses
         for i in range(len(landmarks_uncertainty)):
             ellipse = draw_ellipse(ax, B[i,:], landmarks_uncertainty[i])
-            label = 'Estimated landmarks' if i == 0 else None
-            if label:
-                ellipse.set_label(label)
-        
+            if i == 0:
+                ellipse.set_label('Estimated Landmarks')
+
+
         plt.title('FastSLAM')
         plt.xlabel('X')
         plt.ylabel('Y')
-        plt.legend(loc = 'best')
+        plt.legend(loc='best')
+        plt.grid()
+        plt.axis('equal')
         plt.show()
-
     else:
-        print('No landmarks seen') 
+        print('No landmarks seen')
 
    
 
