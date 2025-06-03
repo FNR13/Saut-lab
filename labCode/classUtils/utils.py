@@ -113,7 +113,7 @@ def draw_covariance_ellipse(win, mean, cov, color=(255, 0, 0), scale=2.0, min_si
     rect = ellipse_rot.get_rect(center=(mean[0], mean[1]))
     win.blit(ellipse_rot, rect)
 
-def draw_ellipse(ax, mean, cov, scale=2.0, min_size=5.0, color='0.7'):
+def draw_ellipse(ax, mean, cov, scale=2.0, min_size=0, color='0.7'):
     """Draw covarice ellipses in final Map"""
 
     eigenvals, eigenvecs = np.linalg.eig(cov)

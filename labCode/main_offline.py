@@ -156,6 +156,7 @@ def main():
     aligned_most_probable_path = (centered_path @ Rotation) + real_center
 
     # -----------------------------------------------------------------------------------------------------------------
+    # -----------------------------------------------------------------------------------------------------------------
     # Data Visualization
     ground_truth_color = 'red'
     particle_color = 'black'
@@ -180,7 +181,7 @@ def main():
     ax.legend(loc='center left', bbox_to_anchor=(1, 0.5))
     ax.grid(True)
 
-        # Add RMSE text box to Figure 1
+    # Add RMSE text box to Figure 1
     ax.text(
         0.02, 0.98, f'RMSE: {RMSE:.3f}',
         transform=ax.transAxes,
@@ -188,6 +189,21 @@ def main():
         verticalalignment='top',
         bbox=dict(boxstyle='round', facecolor='white', alpha=0.8)
     )
+
+    # Draw ellipses at aligned positions (uncertainty visualization)
+    estimated_aligned_xy = aligned  # Already aligned XY positions
+    uncertainty_list = []
+
+    # Rotate covariance matrices
+    for cov in estimated_landmarks_covariance:
+        rotated_cov = Rotation @ cov @ Rotation.T
+        uncertainty_list.append(rotated_cov)
+
+    for i, aligned_pos in enumerate(estimated_aligned_xy):
+        ellipse = draw_ellipse(ax, aligned_pos, uncertainty_list[i])
+        if i == 0:
+            ellipse.set_label("Uncertainty (aligned)")
+
 
     # --- Figure 2: Odometry and non-aligned estimations ---
     fig1, ax1 = plt.subplots()
