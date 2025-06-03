@@ -29,6 +29,7 @@ def main():
     Q_cov = np.diag([20.0, np.radians(30)]) # Measurement noise for fast slam - for range and bearing
 
     if use_range_only_fastslam:
+        print("Using Range Only FastSLAM")
          # Range Only FastSLAM parameters    
         sensor_fov = 60 #vision range of the camera in º
         Q_cov = 20.0 # Measurement noise for fast slam - for range
@@ -43,6 +44,7 @@ def main():
             sensor_fov,
         )
     else:
+        print("Using FastSLAM")
         fastslam = FastSLAM(
             robot_initial_pose,
             N_PARTICLES,
