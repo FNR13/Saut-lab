@@ -1,7 +1,6 @@
 import math
 import numpy as np
 
-
 # -----------------------------------------------------------------------------------------------------------------
 # Importing utils
 try:
@@ -181,9 +180,4 @@ def test_ekf():
     print("Landmark covariance:\n", ekf.landmark_covariances)
 
 if __name__ == "__main__":
-    test_ekf()
-
-
-
-
-        
+    test_ekf()      

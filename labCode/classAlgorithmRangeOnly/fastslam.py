@@ -1,39 +1,60 @@
 import math
 import numpy as np
+import copy
 
-from particle import Particle
+# -----------------------------------------------------------------------------------------------------------------
+# Importing Particle class
+try:
+    # Relative import for normal package usage
+    from .particle import Particle
+except ImportError:
+    # Absolute import fallback for direct script testing
+    from particle import Particle
 
-from utils import wrap_angle_rad
+# Importing utils
+try:
+    # Relative import for normal package usage
+    from classUtils.utils import wrap_angle_rad
+    
+except ModuleNotFoundError:
+    # Absolute import fallback for direct script testing
+    import sys
+    import os
+    sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
+    from classUtils.utils import wrap_angle_rad
 
-class FastSLAM:
+# -----------------------------------------------------------------------------------------------------------------
+# Class Definition
+
+class FastSLAM_RO:
     def __init__(self, robot_initial_pose, num_particles, particles_odometry_uncertainty, landmarks_initial_uncertainty, Q_cov, sensor_fov):
 
         self.robot_initial_pose = robot_initial_pose  # (x, y, theta)
 
         # Particle Filter parameters
         self.num_particles = num_particles
-        self.particles_odometry_uncertainty = particles_odometry_uncertainty
-        self.landmarks_initial_uncertainty = landmarks_initial_uncertainty
-        self.sensor_fov = sensor_fov
 
         self.Q_cov = Q_cov  # Measurement noise covariance for range and bearing
 
-        self.particles = self._init_particles()
+        self.particles = self._init_particles(particles_odometry_uncertainty, landmarks_initial_uncertainty, sensor_fov)
         self.resampled_indexes = [] #list containing the resampled indexes 
         self.best_index = 0
 
 
     # Particle Filter Management
-    def _init_particles(self):
+    def _init_particles(self, particles_odometry_uncertainty, landmarks_initial_uncertainty, sensor_fov):
         return [
-            Particle(self.particles_odometry_uncertainty, self.landmarks_initial_uncertainty, self.Q_cov, self.sensor_fov)
+            Particle(particles_odometry_uncertainty, landmarks_initial_uncertainty, self.Q_cov, sensor_fov)
             for _ in range(self.num_particles)
         ]
 
     def predict_particles(self, v, omega, dt):
-        for particle in self.particles:
-            particle.motion_update(v, omega, dt)
+        # Only update if robot moving
+        if abs(v*dt) > 0.001*dt or abs(omega*dt) > 0.01*dt:
+            # print('Particles motion update')
+            for particle in self.particles:
+                particle.motion_update(v, omega, dt)
     
     # Landmark Management
     def observation_update(self, z_all):
@@ -112,6 +133,9 @@ class FastSLAM:
         for p in self.particles:
             p.weight /= total_weight
 
+# -----------------------------------------------------------------------------------------------------------------
+# Test functions
+
 def test_fastslam():
     import numpy as np
 
@@ -120,12 +144,12 @@ def test_fastslam():
     num_particles = 3
     particles_odometry_uncertainty = (0.1, 0.01)  # (speed, angular rate)
     landmarks_initial_uncertainty = 10  # Initial uncertainty for landmarks
-    #Q_cov = np.diag([20.0, np.radians(30)])  # Measurement noise for fast slam - for range and bearing
-    Q_cov = 20.0
-    sensor_fov = 60
+    Q_cov = np.diag([20.0, np.radians(30)])  # Measurement noise for fast slam - for range and bearing
+
+    sensor_fov = 60 #vision range of the camera in º
 
     # Create FastSLAM object
-    slam = FastSLAM(robot_initial_pose, num_particles, particles_odometry_uncertainty, landmarks_initial_uncertainty, Q_cov, sensor_fov)
+    slam = FastSLAM_RO(robot_initial_pose, num_particles, particles_odometry_uncertainty, landmarks_initial_uncertainty, Q_cov, sensor_fov)
 
     # Simulate motion update
     v = 1
@@ -151,9 +175,8 @@ def test_fastslam():
         dx = true_landmark_1[0] - robot_initial_pose[0]
         dy = true_landmark_1[1] - robot_initial_pose[1]
         range_ = math.hypot(dx, dy) + np.random.normal(0, 0.2)
-        #bearing = wrap_angle_rad(math.atan2(dy, dx) - robot_initial_pose[2] + np.random.normal(0, np.radians(5)))
-        #z_all.append([marker_id_1, range_, bearing])
-        z_all.append([marker_id_1, range_])
+        bearing = wrap_angle_rad(math.atan2(dy, dx) - robot_initial_pose[2] + np.random.normal(0, np.radians(5)))
+        z_all.append([marker_id_1, range_, bearing])
         slam.observation_update(z_all)
         print(f"\nLandmark 1 observation {obs_num+1}:")
         for i, p in enumerate(slam.particles):
@@ -168,9 +191,8 @@ def test_fastslam():
         dx = true_landmark_2[0] - robot_initial_pose[0]
         dy = true_landmark_2[1] - robot_initial_pose[1]
         range_ = math.hypot(dx, dy) + np.random.normal(0, 0.2)
-        #bearing = wrap_angle_rad(math.atan2(dy, dx) - robot_initial_pose[2] + np.random.normal(0, np.radians(5)))
-        #z_all.append([marker_id_2, range_, bearing])
-        z_all.append([marker_id_2, range_])
+        bearing = wrap_angle_rad(math.atan2(dy, dx) - robot_initial_pose[2] + np.random.normal(0, np.radians(5)))
+        z_all.append([marker_id_2, range_, bearing])
         slam.observation_update(z_all)
         print(f"\nLandmark 2 observation {obs_num+1}:")
         for i, p in enumerate(slam.particles):
@@ -194,5 +216,47 @@ def test_fastslam():
     best = slam.get_best_particle()
     print("Best particle pose:", best.x, best.y, best.theta)
 
+# -----------------------------------------------------------------------------------------------------------------
+# Test resampling function
+def test_resampling():
+    print("Testing resampling...")
+
+    # Create FastSLAM with 5 particles
+    sensor_fov = 60 #vision range of the camera in º
+
+    # Create FastSLAM object
+    slam = FastSLAM_RO([0,0,0], 5, (0.1, 0.01), 10, np.eye(2), sensor_fov)
+    
+    # Assign distinct weights
+    for i, p in enumerate(slam.particles):
+        p.weight = i + 1  # weights: 1, 2, 3, 4, 5
+
+    # Normalize weights
+    slam.normalize_weight()
+    print("Weights before resampling:", [p.weight for p in slam.particles])
+
+    # Save original particle IDs (using id() or add a custom attribute)
+    original_ids = [id(p) for p in slam.particles]
+
+    # Perform resampling
+    slam.resampling()
+
+    # Check which original particles were selected
+    new_ids = [id(p) for p in slam.particles]
+    print("Original IDs:", original_ids)
+    print("New IDs after resampling:", new_ids)
+    print("Resampled indexes:", slam.resampled_indexes)
+
+    # Count how many times each original particle was selected
+    from collections import Counter
+    counts = Counter(slam.resampled_indexes)
+    print("Selection counts:", counts)
+
+# -----------------------------------------------------------------------------------------------------------------
+# Run the test functions
+
 if __name__ == "__main__":
-    test_fastslam()
+    test_resampling()
+
+# if __name__ == "__main__":
+#     test_fastslam()

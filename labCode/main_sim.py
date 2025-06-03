@@ -12,6 +12,7 @@ from classSimulation.env import Envo
 from classSimulation.landmarks import Landmarks
 
 from classAlgorithm.fastslam import FastSLAM
+from classAlgorithmRangeOnly.fastslam import FastSLAM_RO
 
 # -----------------------------------------------------------------------------------------------------------------
 def main():
@@ -19,19 +20,36 @@ def main():
     robot_initial_pose = (200, 300, math.pi/2)
     # robot_initial_pose = (0, 0, 0)
 
+    use_range_only_fastslam = True
+
     # FastSLAM initialization
     N_PARTICLES = 100
-    particles_odometry_uncertainty = (10, 0.1)  # (speed, anngular rate)
-    landmarks_initial_uncertainty = 10  # Initial uncertainty for landmarks
+    particles_odometry_uncertainty = (0.001, 0.05)  # (speed, anngular rate)
+    landmarks_initial_uncertainty = 100  # Initial uncertainty for landmarks
     Q_cov = np.diag([20.0, np.radians(30)]) # Measurement noise for fast slam - for range and bearing
-    
-    fastslam = FastSLAM(
-        robot_initial_pose,
-        N_PARTICLES,
-        particles_odometry_uncertainty,
-        landmarks_initial_uncertainty,
-        Q_cov,
-    )
+
+    if use_range_only_fastslam:
+         # Range Only FastSLAM parameters    
+        sensor_fov = 60 #vision range of the camera in º
+        Q_cov = 20.0 # Measurement noise for fast slam - for range
+
+        # Range Only FastSLAM initialization
+        fastslam = FastSLAM_RO(
+            robot_initial_pose,
+            N_PARTICLES,
+            particles_odometry_uncertainty,
+            landmarks_initial_uncertainty,
+            Q_cov, 
+            sensor_fov,
+        )
+    else:
+        fastslam = FastSLAM(
+            robot_initial_pose,
+            N_PARTICLES,
+            particles_odometry_uncertainty,
+            landmarks_initial_uncertainty,
+            Q_cov,
+        )
 
         # Noise implementations
     use_camera_noise = False
@@ -118,7 +136,11 @@ def main():
                     distance += np.random.normal(0, distance_noise_power) 
                     bearing += np.random.normal(0, bearing_noise_power) 
 
-                z_all.append([marker_id, distance, bearing])
+                if use_range_only_fastslam:
+                    # For Range Only FastSLAM, we only need the distance
+                    z_all.append([marker_id, distance])
+                else:
+                    z_all.append([marker_id, distance, bearing])
         
         # Add noise to the odometry
         if use_odometry_noise:

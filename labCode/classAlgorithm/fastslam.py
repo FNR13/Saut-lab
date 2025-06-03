@@ -49,9 +49,7 @@ class FastSLAM:
             for _ in range(self.num_particles)
         ]
 
-    def predict_particles(self, v, omega, dt):
-        # print('predict_particles', v*dt, omega*dt, dt)
-        
+    def predict_particles(self, v, omega, dt):        
         # Only update if robot moving
         if abs(v*dt) > 0.001*dt or abs(omega*dt) > 0.01*dt:
             # print('Particles motion update')

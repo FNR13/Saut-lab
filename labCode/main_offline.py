@@ -5,6 +5,7 @@ import matplotlib.pyplot as plt
 from classUtils.utils import *
 
 from classAlgorithm.fastslam import FastSLAM
+from classAlgorithmRangeOnly.fastslam import FastSLAM_RO
 
 # -----------------------------------------------------------------------------------------------------------------
 def main():
@@ -15,18 +16,35 @@ def main():
     # FastSLAM initialization
     robot_initial_pose = (0, 0, 0)
 
+    use_range_only_fastslam = True
+
     N_PARTICLES = 150
     particles_odometry_uncertainty = (0.005, 0.05)  # (speed, angular rate)
     landmarks_initial_uncertainty = 1
     Q_cov = np.diag([1, 1])  # Measurement noise covariance for range and bearing
 
-    fastslam = FastSLAM(
-        robot_initial_pose,
-        N_PARTICLES,
-        particles_odometry_uncertainty,
-        landmarks_initial_uncertainty,
-        Q_cov,
-    )
+    if use_range_only_fastslam:
+         # Range Only FastSLAM parameters    
+        sensor_fov = 60 #vision range of the camera in º
+        Q_cov = 20.0 # Measurement noise for fast slam - for range
+
+        # Range Only FastSLAM initialization
+        fastslam = FastSLAM_RO(
+            robot_initial_pose,
+            N_PARTICLES,
+            particles_odometry_uncertainty,
+            landmarks_initial_uncertainty,
+            Q_cov, 
+            sensor_fov,
+        )
+    else:
+        fastslam = FastSLAM(
+            robot_initial_pose,
+            N_PARTICLES,
+            particles_odometry_uncertainty,
+            landmarks_initial_uncertainty,
+            Q_cov,
+        )
 
         ## Ground Truth landmarks and trajectories
     # Define landmarks and trajectories
@@ -74,10 +92,15 @@ def main():
             marker_id, dx, dy, dz = obs
             # Convert to range and bearing relative to the robot pose
             # dx lateral distance(left/right is negative/positive), dz foward distance 
-            rng = math.hypot(dz, dx)
+            distance = math.hypot(dz, dx)
             #bearing = wrap_angle_rad(math.atan2(dx, dz)) #Before
             bearing = wrap_angle_rad(math.atan2(dx, dz) - camera_offset)
-            z_all.append([marker_id, rng, bearing])
+
+            if use_range_only_fastslam:
+                # For Range Only FastSLAM, we only need the distance
+                z_all.append([marker_id, distance])
+            else:
+                z_all.append([marker_id, distance, bearing])
 
         if z_all:
             fastslam.observation_update(z_all)

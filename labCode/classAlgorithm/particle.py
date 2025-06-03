@@ -167,6 +167,3 @@ def test_particle():
 
 if __name__ == "__main__":
     test_particle()
-
-
-

@@ -1,8 +1,22 @@
 import math
 import numpy as np
 
-from utils import wrap_angle_rad
+# -----------------------------------------------------------------------------------------------------------------
+# Importing utils
+try:
+    # Relative import for normal package usage
+    from classUtils.utils import wrap_angle_rad
 
+except ModuleNotFoundError:
+    # Absolute import fallback for direct script testing
+    import sys
+    import os
+    sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+
+    from classUtils.utils import wrap_angle_rad
+
+# -----------------------------------------------------------------------------------------------------------------
+# Class Definition
 
 class ExtendedKalmanFilter:
     def __init__(self, initial_landmark_position, initial_landmark_covariances, Q_cov):
@@ -134,6 +148,9 @@ def update_kf_with_cholesky(xf, Pf, v, Q_cov, Hf):
 
     return x, P
 
+# -----------------------------------------------------------------------------------------------------------------
+# Test function for the Extended Kalman Filter
+
 def test_ekf():
     import numpy as np
 
@@ -182,9 +199,4 @@ def test_ekf():
     print("Landmark covariance:\n", ekf.landmark_covariances)
 
 if __name__ == "__main__":
-    test_ekf()
-
-
-
-
-        
+    test_ekf()       

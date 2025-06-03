@@ -1,8 +1,31 @@
 import math
 import numpy as np
 
-from ekf import ExtendedKalmanFilter, compute_jacobians
-from utils import wrap_angle_rad
+# -----------------------------------------------------------------------------------------------------------------
+# Importing EKF
+try:
+    # Relative import for normal package usage
+    from .ekf import ExtendedKalmanFilter, compute_jacobians
+
+except ImportError:
+    # Absolute import fallback for direct script testing
+    from ekf import ExtendedKalmanFilter, compute_jacobians
+
+# Importing utils
+try:
+    # Relative import for normal package usage
+    from classUtils.utils import wrap_angle_rad
+
+except ModuleNotFoundError:
+    # Absolute import fallback for direct script testing
+    import sys
+    import os
+    sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+
+    from classUtils.utils import wrap_angle_rad
+
+# -----------------------------------------------------------------------------------------------------------------
+# Class Definition
 
 class Particle:
     def __init__(self, odometry_uncertainty, landmark_uncertainty, Q_cov, sensor_fov):
@@ -104,17 +127,16 @@ class Particle:
 
             return max(weight, 1e-8)
 
+# -----------------------------------------------------------------------------------------------------------------
+# Test function for the Particle class
 
 def test_particle():
     import numpy as np
-    from ekf import ExtendedKalmanFilter
 
     # Create a particle with some uncertainty
     odometry_uncertainty = (0.01, 0.01)
     landmark_uncertainty = 100.0
-    #Q_cov = np.diag([0.5, np.deg2rad(10)])
-    Q_cov = 0.5
-
+    Q_cov = np.diag([0.5, np.deg2rad(10)])
 
     p = Particle(odometry_uncertainty, landmark_uncertainty, Q_cov)
 
@@ -125,19 +147,16 @@ def test_particle():
     p.motion_update(1.0, 0.1, 1.0)
     print("After motion update:", p.x, p.y, p.theta, "\n")
 
-    # Simulate a landmark observation (range)
+    # Simulate a landmark observation (range, bearing)
     marker_id = 42
     true_landmark = np.array([3.0, 4.0])
     range_meas = np.linalg.norm(true_landmark - np.array([p.x, p.y]))
-    #bearing_meas = np.arctan2(true_landmark[1] - p.y, true_landmark[0] - p.x) - p.theta
+    bearing_meas = np.arctan2(true_landmark[1] - p.y, true_landmark[0] - p.x) - p.theta
 
     # Add noise to the first measurement
     range_meas_noisy = range_meas + np.random.normal(0, 0.2)
-    #bearing_meas_noisy = bearing_meas + np.random.normal(0, np.deg2rad(5))
-    #z = np.array([range_meas_noisy, bearing_meas_noisy])
-    z = range_meas_noisy
-    #z = range_meas_noisy
-
+    bearing_meas_noisy = bearing_meas + np.random.normal(0, np.deg2rad(5))
+    z = np.array([range_meas_noisy, bearing_meas_noisy])
 
     # First observation (should initialize the landmark)
     p.landmark_update(marker_id, z)
@@ -148,9 +167,7 @@ def test_particle():
     print("    Weights:", p.weight, "\n")
 
     # Second observation (use the true measurement, no noise)
-    #z_true = np.array([range_meas, bearing_meas])
-    z_true = range_meas
-
+    z_true = np.array([range_meas, bearing_meas])
     p.landmark_update(marker_id, z_true)
     print("After second landmark observation (true measurement):")
     print("    Landmark positions:", p.landmarks_position)
@@ -160,6 +177,3 @@ def test_particle():
 
 if __name__ == "__main__":
     test_particle()
-
-
-
