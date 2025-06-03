@@ -2,88 +2,16 @@ import math
 import numpy as np
 from matplotlib.patches import Ellipse
 
-# -----------------------------------------------------------------------------------------------------------------
-# Debugging and utility functions
+import pygame
+
+import rosbag
 
 def wrap_angle_rad(angle):
     """Wrap angle to [-π, π)"""
     return (angle + math.pi) % (2 * math.pi) - math.pi
 
-def transform_landmarks(estimated, real):
-    """Align estimated landmarks to real landmarks using orthogonal Procrustes."""
-    
-    from scipy.linalg import orthogonal_procrustes
-
-    real = np.array([b.flatten() for b in real])
-    estimated = np.array([b.flatten() for b in estimated])
-    
-    # Center both sets
-    real_center = real.mean(axis=0)
-    est_center = estimated.mean(axis=0)
-
-    real_centered = real - real_center
-    estimated_centered = estimated - est_center
-        
-    # Find best rotation
-    R, _ = orthogonal_procrustes(estimated_centered, real_centered)
-
-    # Apply rotation to estimated
-    estimated_rotated = estimated_centered @ R
-
-    # Translate to the real coordenates origin 
-    estimated_aligned = estimated_rotated + real_center
-
-    return estimated_aligned, est_center,real_center, R
-
-def rotate_path(x, y, theta):
-
-    # Use the coordinates origin as pivot 
-    cx, cy = x[0], y[0]
-
-    # Rotation matrix
-    cos_theta = math.cos(theta)
-    sin_theta = math.sin(theta)
-
-    x_rotated = []
-    y_rotated = []
-
-    for xi, yi in zip(x, y):
-        # Translate to origin with respect to the first point
-        x_tras = xi - cx
-        y_tras = yi - cy
-
-        # Apply rotation
-        x_rot = cos_theta * x_tras - sin_theta * y_tras
-        y_rot = sin_theta * x_tras + cos_theta * y_tras
-
-        # Translate again to the initial point as pivot
-        x_final = x_rot + cx
-        y_final = y_rot + cy
-
-        x_rotated.append(x_final)
-        y_rotated.append(y_final)
-
-    x_rotated = np.array(x_rotated)
-    y_rotated = np.array(y_rotated)
-
-    return x_rotated, y_rotated
-
-
-def update_paths(paths, new_pose):
-    '''Add the last pose of each particle to its path'''
-    return np.concatenate((paths, new_pose), axis=1)
-
-def resample_paths(paths,indexes):
-    '''Resample the particles with replacement'''
-    # Resampling 
-    paths = paths[indexes, :, :]
-    return paths
-
-# -----------------------------------------------------------------------------------------------------------------
-# Draw in simulation
 def draw_fastslam_particles(particles, win, color=(0, 0, 255)):
     """Draw all particles in the FastSLAM algorithm."""
-    import pygame
 
     for particle in particles:
         pos = (int(particle.x), int(particle.y))
@@ -92,7 +20,6 @@ def draw_fastslam_particles(particles, win, color=(0, 0, 255)):
 
 def draw_covariance_ellipse(win, mean, cov, color=(255, 0, 0), scale=2.0, min_size=5.0):
     """Draw covarice ellipses in Microsimulator"""
-    import pygame
 
     eigenvals, eigenvecs = np.linalg.eig(cov)
     order = eigenvals.argsort()[::-1]
@@ -113,7 +40,17 @@ def draw_covariance_ellipse(win, mean, cov, color=(255, 0, 0), scale=2.0, min_si
     rect = ellipse_rot.get_rect(center=(mean[0], mean[1]))
     win.blit(ellipse_rot, rect)
 
-def draw_ellipse(ax, mean, cov, scale=2.0, min_size=0, color='0.7'):
+def update_paths(paths, new_pose):
+    '''Add the last pose of each particle to its path'''
+    return np.concatenate((paths, new_pose), axis=1)
+
+def resample_paths(paths,indexes):
+    '''Resample the particles with replacement'''
+    # Resampling 
+    paths = paths[indexes, :, :]
+    return paths
+
+def draw_ellipse(ax, mean, cov, scale=2.0, min_size=5.0, color='0.7'):
     """Draw covarice ellipses in final Map"""
 
     eigenvals, eigenvecs = np.linalg.eig(cov)
@@ -125,6 +62,11 @@ def draw_ellipse(ax, mean, cov, scale=2.0, min_size=0, color='0.7'):
     # Compute ellipse axes
     width = max(min_size, 2 * scale * np.sqrt(eigenvals[0]))
     height = max(min_size, 2 * scale * np.sqrt(eigenvals[1]))
+    
+    # Change the coordenate origin  
+    mean = mean.copy()
+    mean[-1] = -mean[-1]
+    #mean[0] = -mean[0]
 
     # Create the ellipse
     ellipse = Ellipse(xy=mean, width=width, height=height, angle=angle, edgecolor=(0,1,0),facecolor='none')
@@ -146,23 +88,7 @@ def draw_ellipse(ax, mean, cov, scale=2.0, min_size=0, color='0.7'):
     
     return ellipse #Necessary to write the label in the final map
 
-def get_color_by_uncertainty(uncertainty, min_unc=1, max_unc=100, base='green'):
-    # Normalize uncertainty to [0, 1], invert so higher uncertainty is darker
-    norm = np.clip((uncertainty - min_unc) / (max_unc - min_unc), 0, 1)
-    intensity = 1.0 - norm  # 1=bright, 0=dark
-    if base == 'green':
-        return (0, intensity, 0)
-    elif base == 'blue':
-        return (0, 0, intensity)
-    else:
-        return (intensity, intensity, intensity)
-
-# -----------------------------------------------------------------------------------------------------------------
-# ROS
-
 def read_bag_data(bag_file):
-    import rosbag
-
     bag = rosbag.Bag(bag_file)
     pose_times = []
     pose_vectors = []
@@ -174,7 +100,7 @@ def read_bag_data(bag_file):
         y = msg.pose.pose.position.y
         orientation_z = msg.pose.pose.orientation.z
         linear_x = msg.twist.twist.linear.x
-        angular_z = msg.twist.twist.angular.z
+        angular_z = - msg.twist.twist.angular.z
         pose_vectors.append([t.to_sec(), x, y, orientation_z, linear_x, angular_z])
         pose_times.append(t.to_sec())
 
@@ -211,52 +137,43 @@ def read_bag_data(bag_file):
 
     return obs_times, interp_x, interp_y, interp_orientation_z, interp_linear_x, interp_angular_z, obs_data
 
-# -----------------------------------------------------------------------------------------------------------------
-# Test
 
-def test_transform_landmarks():
-    import numpy as np
-    import matplotlib.pyplot as plt
+def draw_ellipse(ax, mean, cov, scale=2.0, min_size=5.0, color='0.7'):
+    """Draw covarice ellipses in final Map"""
 
-    # Create real landmarks (Nx2)
-    real = np.array([
-        [0, 0],
-        [1, 0],
-        [0, 1],
-        [1, 1]
-    ])
+    eigenvals, eigenvecs = np.linalg.eig(cov)
+    order = eigenvals.argsort()[::-1]
+    eigenvals, eigenvecs = eigenvals[order], eigenvecs[:, order]
 
-    # Apply known rotation and translation to create estimated landmarks
-    theta = np.radians(30)
-    R = np.array([
-        [np.cos(theta), -np.sin(theta)],
-        [np.sin(theta),  np.cos(theta)]
-    ])
-    t = np.array([2, 3])
-    estimated = (real @ R.T) + t
+    angle = math.degrees(math.atan2(eigenvecs[1, 0], eigenvecs[0, 0]))
+    
+    # Compute ellipse axes
+    width = max(min_size, 2 * scale * np.sqrt(eigenvals[0]))
+    height = max(min_size, 2 * scale * np.sqrt(eigenvals[1]))
+    
+    # Change the coordenate origin  
+    mean = mean.copy()
+    mean[-1] = -mean[-1]
+    #mean[0] = -mean[0]
 
-    # Use your function to align estimated to real
-    estimated_aligned = transform_landmarks(estimated, real)
+    # Create the ellipse
+    ellipse = Ellipse(xy=mean, width=width, height=height, angle=angle, edgecolor=(0,1,0),facecolor='none')
+    ax.add_patch(ellipse)
 
-    # Plot for visual check
-    plt.figure()
-    plt.scatter(real[:, 0], real[:, 1], c='green', label='Real')
-    plt.scatter(estimated[:, 0], estimated[:, 1], c='red', marker='x', label='Estimated (before)')
-    plt.scatter(estimated_aligned[:, 0], estimated_aligned[:, 1], c='blue', marker='o', label='Estimated (aligned)')
-    plt.legend()
-    plt.title("Test transform_landmarks")
-    plt.axis('equal')
-    plt.show()
+    # Draw the mean 
+    axis_length1 = 0.5 * width
+    axis_length2 = 0.5 * height
+    dir1 = eigenvecs[:, 0] * axis_length1
+    dir2 = eigenvecs[:, 1] * axis_length2
 
-    # Print for numeric check
-    print("Real:\n", real)
-    print("Estimated (before):\n", estimated)
-    print("Estimated (aligned):\n", estimated_aligned)
-    print("Alignment error (should be small):", np.linalg.norm(estimated_aligned - real))
+    ax.plot([mean[0] - dir1[0], mean[0] + dir1[0]], 
+            [mean[1] - dir1[1], mean[1] + dir1[1]],
+            color=color, linestyle='-', linewidth=0.5)
 
-# Call this function to test
-if __name__ == "__main__":
-    test_transform_landmarks()
-
+    ax.plot([mean[0] - dir2[0], mean[0] + dir2[0]], 
+            [mean[1] - dir2[1], mean[1] + dir2[1]],
+            color=color, linestyle='-', linewidth=0.5)
+    
+    return ellipse #Necessary to write the label in the final map
 
 
