@@ -13,6 +13,7 @@ from classSimulation.landmarks import Landmarks
 
 from classAlgorithm.fastslam import FastSLAM
 
+# -----------------------------------------------------------------------------------------------------------------
 def main():
 
     robot_initial_pose = (200, 300, math.pi/2)
@@ -20,7 +21,7 @@ def main():
 
     # FastSLAM initialization
     N_PARTICLES = 100
-    particles_odometry_uncertainty = (0.001, 0.05)  # (speed, anngular rate)
+    particles_odometry_uncertainty = (10, 0.1)  # (speed, anngular rate)
     landmarks_initial_uncertainty = 10  # Initial uncertainty for landmarks
     Q_cov = np.diag([20.0, np.radians(30)]) # Measurement noise for fast slam - for range and bearing
     
@@ -66,7 +67,7 @@ def main():
     clock = pygame.time.Clock()
     dt = 0
 
-    # -----------------------------------------------------------------------------------------------------------------------------
+    # -----------------------------------------------------------------------------------------------------------------
     # Loop
     run = True
     while run:
@@ -127,6 +128,7 @@ def main():
         velocity = (rob.velL + rob.velR) / 2.0
         omega = ((rob.velR - rob.velL)/ rob.wd)*-1
 
+        # -----------------------------------------------------------------------------------------------------------------
         # ----------
         # FastSLAM step
         # ----------
@@ -149,8 +151,11 @@ def main():
             # Resample the paths in the same manner as the particles
             paths = resample_paths(paths,fastslam.resampled_indexes)
         # ----------
+        
+        # -----------------------------------------------------------------------------------------------------------------
+        # Drawing 
 
-        # Draw the best particle
+        # Get the best particle
         best_particle = fastslam.get_best_particle()
         best_path = fastslam.particles.index(best_particle)
         draw_fastslam_particles([best_particle], env.win, color=(255, 0, 255))  # Magenta'''
@@ -201,7 +206,14 @@ def main():
                 
         pygame.display.update()
     pygame.quit()
-    
+
+    # -----------------------------------------------------------------------------------------------------------------
+    # After the simulation, we can plot the results
+
+    ground_truth_color = 'red'
+    particle_color = 'black'
+    aligned_estimation_color = 'blue'
+
     if best_particle.landmarks_id:
         fig, ax = plt.subplots()
         
@@ -214,7 +226,7 @@ def main():
                  'r--', label='Ground Truth Path', linewidth=2)
             # Landamrks
         ax.scatter(identified_real_landmarks[:,0], -identified_real_landmarks[:,1],
-           facecolors='none', edgecolors='red', marker='o', label='Real Landmarks', linewidths=2)
+           facecolors='none', edgecolors=ground_truth_color, marker='o', label='Real Landmarks', linewidths=2)
         
         # Estimation
             # Most probable FastSLAM trajectory
@@ -229,9 +241,9 @@ def main():
         aligned_most_probable_path = (centered_path @ Rotation) + real_center
 
         plt.plot(most_probable_path[:,0], -most_probable_path[:,1], 
-                 'green', label='Estimated Most Probable Path', linewidth=1)
+                 particle_color, label='Estimated Most Probable Path', linewidth=1)
         plt.plot(aligned_most_probable_path[:,0], -aligned_most_probable_path[:,1], 
-                 'blue', label='Aligned Most Probable Path', linewidth=1)
+                 aligned_estimation_color, label='Aligned Most Probable Path', linewidth=1)
         
         # Estimated landmarks
             # Estimated landmarks with elipses
@@ -257,20 +269,20 @@ def main():
         #         else:
         #             color = (1, 0, 0)
                 
-        #         color_est = get_color_by_uncertainty(uncertainty, base='green')
-        #         color_aligned = get_color_by_uncertainty(uncertainty, base='blue')
+        #         color_est = get_color_by_uncertainty(uncertainty, base=particle_color)
+        #         color_aligned = get_color_by_uncertainty(uncertainty, base=aligned_estimation_color)
 
         #         draw_ellipse(ax, mean_estimated, cov_estimated, color=color_est)
         #         draw_ellipse(ax, mean_alligned, cov_estimated, color=color_aligned)
 
-        # Estimated landmarks points
+            # Estimated landmarks points
         estimated = np.array([
             [landmark[0][0], landmark[1][0]] for landmark in best_particle.landmarks_position])
         aligned = np.array([
             [landmark[0], landmark[1]] for landmark in aligned_estimated_landmarks])
 
-        ax.scatter(estimated[:, 0], -estimated[:, 1], marker='x', c='green', label='Estimated Landmarks')
-        ax.scatter(aligned[:, 0], -aligned[:, 1], marker='x', c='blue', label='Aligned Landmarks')
+        ax.scatter(estimated[:, 0], -estimated[:, 1], marker='x', c=particle_color, label='Estimated Landmarks')
+        ax.scatter(aligned[:, 0], -aligned[:, 1], marker='x', c=aligned_estimation_color, label='Aligned Landmarks')
 
         plt.title('FastSLAM')
         plt.xlabel('X')
@@ -282,8 +294,7 @@ def main():
     else:
         print('No landmarks seen')
 
-   
-
+# -----------------------------------------------------------------------------------------------------------------
 if __name__ == "__main__":
     main()
     

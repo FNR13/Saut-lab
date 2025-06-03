@@ -1,6 +1,8 @@
 import math
 import numpy as np
 
+# -----------------------------------------------------------------------------------------------------------------
+# Importing EKF
 try:
     # Relative import for normal package usage
     from .ekf import ExtendedKalmanFilter, compute_jacobians
@@ -9,6 +11,7 @@ except ImportError:
     # Absolute import fallback for direct script testing
     from ekf import ExtendedKalmanFilter, compute_jacobians
 
+# Importing utils
 try:
     # Relative import for normal package usage
     from classUtils.utils import wrap_angle_rad
@@ -21,10 +24,8 @@ except ModuleNotFoundError:
 
     from classUtils.utils import wrap_angle_rad
 
-
-# from .ekf import ExtendedKalmanFilter, compute_jacobians
-# from classUtils.utils import wrap_angle_rad
-
+# -----------------------------------------------------------------------------------------------------------------
+# Class Definition
 
 class Particle:
     def __init__(self, odometry_uncertainty, landmark_uncertainty, Q_cov):
@@ -116,6 +117,8 @@ class Particle:
 
             return max(weight, 1e-8)
 
+# -----------------------------------------------------------------------------------------------------------------
+# Test function for the Particle class
 
 def test_particle():
     import numpy as np

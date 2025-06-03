@@ -5,7 +5,7 @@ import pandas as pd
 
 import matplotlib.pyplot as plt
 
-bag_file = '/home/ricardo/saut/OfflineEstimation/lab2testWithId.bag'
+bag_file = "../bags/square2-30-05-2025.bag"
 
 ## Open and read bag
 bag = rosbag.Bag(bag_file)

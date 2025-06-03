@@ -12,7 +12,7 @@ class Robot:
         self.velL = 0.01 * self.met2pix
         self.velR = 0.01 * self.met2pix
         self.max = 0.05 * self.met2pix
-        self.min = 0.002 * self.met2pix
+        self.min = 0.00 * self.met2pix
 
             # --- Graphics ---
         self.imge = pygame.image.load(robotimg).convert_alpha()

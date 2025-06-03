@@ -2,7 +2,8 @@ import math
 import numpy as np
 import copy
 
-# Debugging imports
+# -----------------------------------------------------------------------------------------------------------------
+# Importing Particle class
 try:
     # Relative import for normal package usage
     from .particle import Particle
@@ -10,6 +11,7 @@ except ImportError:
     # Absolute import fallback for direct script testing
     from particle import Particle
 
+# Importing utils
 try:
     # Relative import for normal package usage
     from classUtils.utils import wrap_angle_rad
@@ -22,6 +24,8 @@ except ModuleNotFoundError:
 
     from classUtils.utils import wrap_angle_rad
 
+# -----------------------------------------------------------------------------------------------------------------
+# Class Definition
 
 class FastSLAM:
     def __init__(self, robot_initial_pose, num_particles, particles_odometry_uncertainty, landmarks_initial_uncertainty, Q_cov):
@@ -46,8 +50,13 @@ class FastSLAM:
         ]
 
     def predict_particles(self, v, omega, dt):
-        for particle in self.particles:
-            particle.motion_update(v, omega, dt)
+        # print('predict_particles', v*dt, omega*dt, dt)
+        
+        # Only update if robot moving
+        if abs(v*dt) > 0.001*dt or abs(omega*dt) > 0.01*dt:
+            # print('Particles motion update')
+            for particle in self.particles:
+                particle.motion_update(v, omega, dt)
     
     # Landmark Management
     def observation_update(self, z_all):
@@ -123,6 +132,9 @@ class FastSLAM:
             total_weight = 1e-8
         for p in self.particles:
             p.weight /= total_weight
+
+# -----------------------------------------------------------------------------------------------------------------
+# Test functions
 
 def test_fastslam():
     import numpy as np
@@ -202,6 +214,8 @@ def test_fastslam():
     best = slam.get_best_particle()
     print("Best particle pose:", best.x, best.y, best.theta)
 
+# -----------------------------------------------------------------------------------------------------------------
+# Test resampling function
 def test_resampling():
     print("Testing resampling...")
 
@@ -232,6 +246,9 @@ def test_resampling():
     from collections import Counter
     counts = Counter(slam.resampled_indexes)
     print("Selection counts:", counts)
+
+# -----------------------------------------------------------------------------------------------------------------
+# Run the test functions
 
 if __name__ == "__main__":
     test_resampling()

@@ -2,20 +2,22 @@ import math
 import numpy as np
 import matplotlib.pyplot as plt
 
-from classUtils.utils import wrap_angle_rad, update_paths, resample_paths, read_bag_data, draw_ellipse, align_by_centroid_and_pca
+from classUtils.utils import *
 
 from classAlgorithm.fastslam import FastSLAM
 
+# -----------------------------------------------------------------------------------------------------------------
 def main():
     bag_file = "../bags/square2-30-05-2025.bag"
     time, x, y, theta, velocity_vector, omega_vector, obs_data = read_bag_data(bag_file)
-    
+    camera_offset = - math.pi/2
+
     # FastSLAM initialization
     robot_initial_pose = (0, 0, 0)
 
     N_PARTICLES = 150
-    particles_odometry_uncertainty = (0.011, 0.03)  # (speed, angular rate)
-    landmarks_initial_uncertainty = 0.4
+    particles_odometry_uncertainty = (0.005, 0.05)  # (speed, angular rate)
+    landmarks_initial_uncertainty = 1
     Q_cov = np.diag([1, 1])  # Measurement noise covariance for range and bearing
 
     fastslam = FastSLAM(
@@ -26,15 +28,36 @@ def main():
         Q_cov,
     )
 
+        ## Ground Truth landmarks and trajectories
+    # Define landmarks and trajectories
+    real_landmarks = np.array([
+        (-0.08, -0.77), (0.24, 0.40), (-0.54, 1.33), (-0.52, 2.75),
+        (-1.80, -0.77), (-1.30, 1.25), (-1.23, 2.80), (-1.30, 3.70),
+        (-3.73, 3.35)
+    ])
+    real_landmarks_id = [11, 10, 9 ,8, 12, 13, 14, 15, 16]
+
+    square_Trajectory = np.array([
+        (0, -0.3), (0, 4.5), (-1.8, 4.5), (-1.8, -0.3), (0, -0.3)
+    ])
+    L_Trajectory = np.array([
+        (0, 0), (0, 4.5), (-3.9, 4.5)
+    ])
+
+    # Array for saving all paths
     paths = np.zeros((N_PARTICLES, 1, 3), dtype=float)
 
+    # -----------------------------------------------------------------------------------------------------------------------------
     # Main loop: step through bag data
     for i in range(1, len(time)):
         dt = time[i] - time[i-1]
         velocity = velocity_vector[i]
         omega = omega_vector[i]
 
-        # FastSLAM motion update
+        # -----------------------------------------------------------------------------------------------------------------
+        # ----------
+        # FastSLAM step
+        # ----------
         fastslam.predict_particles(velocity, omega, dt)
 
         new_pose = np.zeros((N_PARTICLES, 1, 3), dtype=float)
@@ -53,85 +76,110 @@ def main():
             # dx lateral distance(left/right is negative/positive), dz foward distance 
             rng = math.hypot(dz, dx)
             #bearing = wrap_angle_rad(math.atan2(dx, dz)) #Before
-            bearing = wrap_angle_rad(math.atan2(dx, dz) - math.pi/2) #Now
+            bearing = wrap_angle_rad(math.atan2(dx, dz) - camera_offset)
             z_all.append([marker_id, rng, bearing])
 
         if z_all:
             fastslam.observation_update(z_all)
             fastslam.resampling()
+
+            # Resample the paths in the same manner as the particles
             paths = resample_paths(paths, fastslam.resampled_indexes)
 
-    # Select best particle and extract information
+    # -----------------------------------------------------------------------------------------------------------------
+    # Data prcessing 
+
+        # Select best particle and extract information
     best_particle = fastslam.get_best_particle()
     best_path = fastslam.particles.index(best_particle)
-    landmarks_uncertainty = best_particle.landmarks_position_covariance 
-    estimated_landmarks = best_particle.landmarks_position
-    estimated_landmarks = np.array([b.flatten() for b in estimated_landmarks])
     
-    ## Ground Truth landmarks and trajectories
-    # Define landmarks and trajectories
-    real_landmarks = np.array([
-        (-0.08, -0.77), (0.24, 0.40), (-0.54, 1.33), (-0.52, 2.75),
-        (-1.80, -0.77), (-1.30, 1.25), (-1.23, 2.80), (-1.30, 3.70),
-        (-3.73, 3.35)
-    ])
-    square_Trajectory = np.array([
-        (0, -0.3), (0, 4.5), (-1.8, 4.5), (-1.8, -0.3), (0, -0.3)
-    ])
-    L_Trajectory = np.array([
-        (0, 0), (0, 4.5), (-3.9, 4.5)
-    ])
+    # ---------
+    # Landmarks estimation
+    identified_real_landmarks = []
+    estimated_landmarks = []
+    estimated_landmarks_covariance = []
+
+    for id in best_particle.landmarks_id:
+        idx_real = real_landmarks_id.index(id) if id in real_landmarks_id else None
+        idx_estimated = best_particle.landmarks_id.index(id) if id in best_particle.landmarks_id else None
+        
+        estimated_landmarks.append(best_particle.landmarks_position[idx_estimated])
+        estimated_landmarks_covariance.append(best_particle.landmarks_position_covariance[idx_estimated])
+
+        identified_real_landmarks.append(real_landmarks[idx_real])
     
-    ## Plot data
-    # Create a single figure and axis
+        # Convert to numpy array for vectorized indexing
+    identified_real_landmarks = np.array(identified_real_landmarks)
+    
+    aligned_estimated_landmarks, estimated_center, real_center, Rotation = transform_landmarks(estimated_landmarks, identified_real_landmarks)
+    
+    estimated = np.array([
+    [landmark[0][0], landmark[1][0]] for landmark in estimated_landmarks])
+    
+    aligned = np.array([
+    [landmark[0], landmark[1]] for landmark in aligned_estimated_landmarks])
+
+    RMSE = np.sqrt(np.mean(np.sum((aligned - identified_real_landmarks) ** 2, axis=1)))
+    # ----------
+    # Extract the best path
+
+    most_probable_path = paths[best_path, :, :2]
+
+        # Center the path using the same estimated_center as for landmarks
+    centered_path = most_probable_path - estimated_center
+
+        # Apply the same rotation and translation as for landmarks
+        # NOTE: IF just one landmark was seen, the rotation will be identity, so it won work
+    aligned_most_probable_path = (centered_path @ Rotation) + real_center
+
+    # -----------------------------------------------------------------------------------------------------------------
+    # Data Visualization
+    ground_truth_color = 'red'
+    particle_color = 'black'
+    aligned_estimation_color = 'blue'
+
+    # --- Figure 1: Ground truth and aligned estimations ---
     fig, ax = plt.subplots()
-    
-    # Debu
-    # # Plot particle clouds at key frames
-    # for i in [0, len(time)//4, len(time)//2, 3*len(time)//4, -1]:
-    #     x_part = [p.x for p in fastslam.particles]
-    #     y_part = [p.y for p in fastslam.particles]
-    #     ax.scatter(x_part, y_part, s=5, alpha=0.1, color='gray')
-    
-    # # Plot multiple particle trajectories
-    # N_SAMPLE_PATHS = 10
-    # sampled_indices = np.random.choice(fastslam.num_particles, N_SAMPLE_PATHS, replace=False)
-    # for idx in sampled_indices:
-    #     ax.plot(paths[idx, :, 0], -paths[idx, :, 1], alpha=0.3, linewidth=1)
-    
-    ax.plot(square_Trajectory[:, 1], -square_Trajectory[:, 0], 'b--', label='Square trajectory')
-    # ax.plot(L_Trajectory[:, 1], -L_Trajectory[:, 0], 'b--', label='L trajectory')
-    ax.plot(x, y, 'r--', label='Odometry')
-    
-    # Plot landmarks, trajectories, and odometry
-    ax.scatter(real_landmarks[:, 1], -real_landmarks[:, 0], c='green', marker='o', label='Real landmarks')
+    ax.plot(square_Trajectory[:, 0], square_Trajectory[:, 1], 
+             'r--', label='Ground truth: Square trajectory', linewidth=2)
+    # ax.plot(L_Trajectory[:, 0], L_Trajectory[:, 1], 
+    #   'r--', label='Ground truth: L trajectory', linewidth=2)
 
-    # Convert real_landmarks from (-y, x) to (x, y)
-    real_landmarks_xy = np.array([[b[1], -b[0]] for b in real_landmarks])
-
-    # Plot estimated landmarks (aligned or not)
-    estimated_landmarks = np.array([[b[0], -b[1]] for b in estimated_landmarks])
-    estimated_landmarks_alligned = estimated_landmarks  # or use align_by_centroid_and_pca if desired
-    # Plot estimated landmarks (already transformed)
-    ax.scatter(estimated_landmarks[:, 0], estimated_landmarks[:, 1], c='orange', marker='x', label='Estimated landmarks')
-
-    # Plot uncertainty ellipses for the first two landmarks
-    for i in range(2):
-        # Use the same transformed mean for the ellipse
-        ellipse = draw_ellipse(ax, estimated_landmarks[i], landmarks_uncertainty[i])
-        if i == 0:
-            ellipse.set_label('Estimated landmarks')
-
-    # Plot best path
-    ax.plot(paths[best_path, :, 0], -paths[best_path, :, 1], label='Most probable path', color='blue', linewidth=2)
-
-    # Final plot settings
-    ax.set_title('FastSLAM (Bag Data)')
+    ax.scatter(identified_real_landmarks[:, 0], identified_real_landmarks[:, 1],
+                facecolors='none', edgecolors=ground_truth_color, marker='o', label='Real Landmarks', linewidths=2)
+    ax.plot(aligned_most_probable_path[:,0], aligned_most_probable_path[:,1], 
+                aligned_estimation_color, label='Aligned Most Probable Path', linewidth=1)
+    ax.scatter(aligned[:, 0], aligned[:, 1], 
+                marker='x', c=aligned_estimation_color, label='Aligned Landmarks')
+    ax.set_title('FastSLAM (Aligned Estimation)')
     ax.set_xlabel('X')
     ax.set_ylabel('Y')
-    ax.legend(loc='best')
-    plt.grid(True)
+    ax.legend(loc='center left', bbox_to_anchor=(1, 0.5))
+    ax.grid(True)
+
+        # Add RMSE text box to Figure 1
+    ax.text(
+        0.02, 0.98, f'RMSE: {RMSE:.3f}',
+        transform=ax.transAxes,
+        fontsize=10,
+        verticalalignment='top',
+        bbox=dict(boxstyle='round', facecolor='white', alpha=0.8)
+    )
+
+    # --- Figure 2: Odometry and non-aligned estimations ---
+    fig1, ax1 = plt.subplots()
+    ax1.plot(x, y, 'g--', label='Odometry')
+    ax1.plot(most_probable_path[:,0], most_probable_path[:,1], 
+                particle_color, label='Estimated Most Probable Path', linewidth=1)
+    ax1.scatter(estimated[:, 0], estimated[:, 1], marker='x', c=particle_color, label='Estimated Landmarks')
+    ax1.set_title('FastSLAM (Odometry & Non-Aligned Estimation)')
+    ax1.set_xlabel('X')
+    ax1.set_ylabel('Y')
+    ax1.legend(loc='center left', bbox_to_anchor=(1, 0.5))
+    ax1.grid(True)
+    
     plt.show()
 
+# -----------------------------------------------------------------------------------------------------------------
 if __name__ == "__main__":
     main()

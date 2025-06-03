@@ -174,7 +174,7 @@ def read_bag_data(bag_file):
         y = msg.pose.pose.position.y
         orientation_z = msg.pose.pose.orientation.z
         linear_x = msg.twist.twist.linear.x
-        angular_z = - msg.twist.twist.angular.z
+        angular_z = msg.twist.twist.angular.z
         pose_vectors.append([t.to_sec(), x, y, orientation_z, linear_x, angular_z])
         pose_times.append(t.to_sec())
 
