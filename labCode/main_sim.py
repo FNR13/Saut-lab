@@ -13,6 +13,7 @@ from classSimulation.landmarks import Landmarks
 
 from classAlgorithm.fastslam import FastSLAM
 from classAlgorithmRangeOnly.fastslam import FastSLAM_RO
+from classAlgorithmBearingOnly.fastslam import FastSLAM_BO
 
 # -----------------------------------------------------------------------------------------------------------------
 def main():
@@ -20,7 +21,8 @@ def main():
     robot_initial_pose = (200, 300, math.pi/2)
     # robot_initial_pose = (0, 0, 0)
 
-    use_range_only_fastslam = True
+    use_range_only_fastslam = False
+    use_bearing_only_fastslam = True
 
     # FastSLAM initialization
     N_PARTICLES = 100
@@ -43,6 +45,23 @@ def main():
             Q_cov, 
             sensor_fov,
         )
+
+    elif use_bearing_only_fastslam:
+        print("Using Bearing Only FastSLAM")
+         # Bearing Only FastSLAM parameters    
+        sensor_max_range = 2.0 #vision range of the camera in º
+        Q_cov = np.deg2rad(10) # Measurement noise for fast slam - for bearing
+
+        # Bearing Only FastSLAM initialization
+        fastslam = FastSLAM_RO(
+            robot_initial_pose,
+            N_PARTICLES,
+            particles_odometry_uncertainty,
+            landmarks_initial_uncertainty,
+            Q_cov, 
+            sensor_max_range,
+        )
+
     else:
         print("Using FastSLAM")
         fastslam = FastSLAM(
@@ -141,6 +160,9 @@ def main():
                 if use_range_only_fastslam:
                     # For Range Only FastSLAM, we only need the distance
                     z_all.append([marker_id, distance])
+                elif use_bearing_only_fastslam:
+                    # For Bearing Only FastSLAM, we only need the bearing
+                    z_all.append([marker_id, bearing])
                 else:
                     z_all.append([marker_id, distance, bearing])
         
@@ -308,7 +330,13 @@ def main():
         ax.scatter(estimated[:, 0], -estimated[:, 1], marker='x', c=particle_color, label='Estimated Landmarks')
         ax.scatter(aligned[:, 0], -aligned[:, 1], marker='x', c=aligned_estimation_color, label='Aligned Landmarks')
 
-        plt.title('FastSLAM')
+        if use_range_only_fastslam:
+            plt.title('Range Only FastSLAM')
+        if use_bearing_only_fastslam:
+            plt.title('Bearing Only FastSLAM')
+        else:
+            plt.title('FastSLAM') 
+            
         plt.xlabel('X')
         plt.ylabel('Y')
         plt.legend(loc='best')

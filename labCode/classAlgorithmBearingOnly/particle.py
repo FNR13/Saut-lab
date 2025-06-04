@@ -28,13 +28,13 @@ except ModuleNotFoundError:
 # Class Definition
 
 class Particle:
-    def __init__(self, odometry_uncertainty, landmark_uncertainty, Q_cov, sensor_fov):
+    def __init__(self, odometry_uncertainty, landmark_uncertainty, Q_cov, sensor_max_range):
         self.x = 0
         self.y = 0
         self.theta = 0
         self.weight = 1
 
-        self.sensor_fov_rad = math.radians(sensor_fov) 
+        self.sensor_max_range = sensor_max_range
         self.odometry_noise = odometry_uncertainty
         self.landmark_uncertainty = landmark_uncertainty
         self.Q_cov = Q_cov
@@ -60,7 +60,7 @@ class Particle:
         # Check if the landmark is already known
         if marker_id in self.landmarks_id:
 
-            # get index of the landmark from the list
+            # Get index of the landmark from the list
             idx = self.landmarks_id.index(marker_id) 
 
             pose = np.array([self.x, self.y, self.theta]).reshape(3, 1)
@@ -74,9 +74,15 @@ class Particle:
         else:
 
             # Add new landmark (Initial guess)           
-            theta = self.theta + np.random.uniform(-self.sensor_fov_rad, self.sensor_fov_rad) #The landmark must somewhere be inside the camera FOV
-            landmark_x = self.x + z * math.cos(theta)
-            landmark_y = self.y + z * math.sin(theta)
+            bearing  = z
+            theta = wrap_angle_rad(self.theta + bearing) #Can give problems 
+            
+            r_min = 0
+            r_max = self.sensor_max_range
+            rand_range = np.random.uniform(r_min, r_max)  
+          
+            landmark_x = self.x + rand_range * math.cos(theta)
+            landmark_y = self.y + rand_range * math.sin(theta)
 
             landmark_Position = np.array([landmark_x, landmark_y]).reshape(2,1)
             landmark_position_covariance = np.array([[self.landmark_uncertainty, 0], [0, self.landmark_uncertainty]])
@@ -88,17 +94,19 @@ class Particle:
             self.landmarks_position_covariance.append(landmark_position_covariance)
             self.landmarks_observation_count.append(0)
             self.landmarks_EKF.append(newKalmanFilter)
-            
+
 
     def compute_weight(self, idx, z, pose):
             
+            #z = z.reshape(2, 1)
+
             xf = self.landmarks_EKF[idx].landmark_position
             Pf = self.landmarks_EKF[idx].landmark_covariances
 
             zp, _, Hf, Sf = compute_jacobians(pose, xf, Pf, self.Q_cov)
 
-            # Distance from the linearization point
-            dz = float(z - zp)            
+            # Angle offset
+            dz = wrap_angle_rad(z - zp)            
 
             try:
                 Sf = float(Sf)      
@@ -114,7 +122,6 @@ class Particle:
 
 # -----------------------------------------------------------------------------------------------------------------
 # Test function for the Particle class
-
 def test_particle():
     import numpy as np
 
@@ -122,9 +129,9 @@ def test_particle():
     odometry_uncertainty = (0.01, 0.01)
     landmark_uncertainty = 100.0
     Q_cov = np.deg2rad(10)
-    sensor_fov = 60 #vision range of the camera in º
+    sensor_max_range = 2.0
 
-    p = Particle(odometry_uncertainty, landmark_uncertainty, Q_cov, sensor_fov)
+    p = Particle(odometry_uncertainty, landmark_uncertainty, Q_cov, sensor_max_range)
 
     # Set initial pose
     print("Initial pose:", p.x, p.y, p.theta)
@@ -136,11 +143,11 @@ def test_particle():
     # Simulate a landmark observation (range, bearing)
     marker_id = 42
     true_landmark = np.array([3.0, 4.0])
-    range_meas = np.linalg.norm(true_landmark - np.array([p.x, p.y]))
+    bearing_meas = np.arctan2(true_landmark[1] - p.y, true_landmark[0] - p.x) - p.theta
 
     # Add noise to the first measurement
-    range_meas_noisy = range_meas + np.random.normal(0, 0.2)
-    z = range_meas_noisy
+    bearing_meas_noisy = bearing_meas + np.random.normal(0, np.deg2rad(5))
+    z = bearing_meas_noisy
 
     # First observation (should initialize the landmark)
     p.landmark_update(marker_id, z)
@@ -151,7 +158,7 @@ def test_particle():
     print("    Weights:", p.weight, "\n")
 
     # Second observation (use the true measurement, no noise)
-    z_true = range_meas
+    z_true = bearing_meas
     p.landmark_update(marker_id, z_true)
     print("After second landmark observation (true measurement):")
     print("    Landmark positions:", p.landmarks_position)

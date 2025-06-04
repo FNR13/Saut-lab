@@ -23,7 +23,7 @@ class ExtendedKalmanFilter:
 
         self.landmark_position    = initial_landmark_position.reshape(2,1)     # np (x,y) positions of the landmark
         self.landmark_covariances = initial_landmark_covariances.reshape(2,2); # np Matrix of covariance of the landmark
-        self.Q_cov                = Q_cov               # Matrix of measurement noise covariance for range 
+        self.Q_cov                = Q_cov               # Matrix of measurement noise covariance for bearing
 
     # There is no predic step in the EKF for landmarks, as landmarks are static
 
@@ -33,9 +33,8 @@ class ExtendedKalmanFilter:
 
         zp, Hv, Hf, Sf = compute_jacobians(pose, self.landmark_position, self.landmark_covariances, self.Q_cov)
 
-        # Distance from the linearization point
-        dz = float(z - zp)
-        #dz = wrap_angle_rad(z)
+        # Angle offset
+        dz = wrap_angle_rad(z - zp)
 
         xf, Pf = update_kf_with_cholesky(self.landmark_position, self.landmark_covariances, dz, self.Q_cov, Hf)
 
@@ -51,10 +50,10 @@ def compute_jacobians(pose, xf, Pf, Q_cov):
     - pose: the robot object with x, y, theta 
     - xf: landmark mean position as a 2x1 numpy array [[x], [y]]
     - Pf: 2x2 covariance matrix of the landmark
-    - Q_cov: measurement range noise covariance (sensor noise)
+    - Q_cov: measurement bearing noise covariance (sensor noise)
 
     Returns:
-    - zp: predicted measurement [range]
+    - zp: predicted measurement [bearing]
     - Hv: 1x3 Jacobian of the measurement w.r.t. robot state
     - Hf: 1x2 Jacobian of the measurement w.r.t. landmark position
     - Sf: innovation variance
@@ -76,17 +75,17 @@ def compute_jacobians(pose, xf, Pf, Q_cov):
     d2 = dx ** 2 + dy ** 2
     d = math.sqrt(d2)
 
-    # Predicted measurement: range 
-    zp = d
+    # Predicted measurement: bearing 
+    zp = wrap_angle_rad(math.atan2(dy, dx) - theta) #Is it plus or minus?
 
     # Jacobian w.r.t. robot pose [x, y, theta]
     Hv = np.array([
-        [-dx / d,     -dy / d,      0.0]
+        [dy / d2,     -dx / d2,    -1.0]
     ])
 
     # Jacobian w.r.t. landmark position [xf, yf]
     Hf = np.array([
-        [ dx / d,     dy / d]
+        [-dy / d2,    dx / d2]
     ])
 
     # Innovation variance matrix (uncertainty in prediction)
@@ -113,8 +112,9 @@ def update_kf_with_cholesky(xf, Pf, v, Q_cov, Hf):
 
     PHt = Pf @ Hf.T                     # Cross covariance
     S = (Hf @ PHt) + Q_cov              # Innovation covariance
-    S = float(S)                        # Symmetrize S for numerical stability
-   
+
+    S = float(S)            
+    
     W = PHt / S                         # Kalman gain
 
     x = xf + W * v                      # Updated landmark mean
@@ -135,8 +135,7 @@ def test_ekf():
     initial_landmark_position = np.array([1.5, 2.5])
 
     initial_landmark_covariances = np.eye(2) * 1.0
-
-    Q_cov = 0.5
+    Q_cov = np.deg2rad(10)
 
     # Create EKF object with the initial guess
     ekf = ExtendedKalmanFilter(initial_landmark_position, initial_landmark_covariances, Q_cov)

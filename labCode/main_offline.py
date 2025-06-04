@@ -9,7 +9,7 @@ from classAlgorithmRangeOnly.fastslam import FastSLAM_RO
 
 # -----------------------------------------------------------------------------------------------------------------
 def main():
-    bag_file = "../bags/square2-30-05-2025.bag"
+    bag_file = "/Users/usuario/Desktop/Máster/Autonomous systems/Project/Saut-lab/Bags/square2-30-05-2025.bag"
     time, x, y, theta, velocity_vector, omega_vector, obs_data = read_bag_data(bag_file)
     camera_offset = - math.pi/2
 
