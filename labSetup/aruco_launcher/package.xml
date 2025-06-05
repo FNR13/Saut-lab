@@ -1,0 +1,22 @@
+<?xml version="1.0"?>
+<package format="2">
+  <name>aruco_launcher</name>
+  <version>0.0.1</version>
+  <description>A launch wrapper for ArUco detection</description>
+
+  <maintainer email="ricardo.n.francisco@tecnico.ulisboa.pt">Ricardo</maintainer>
+  <license>MIT</license>
+
+  <buildtool_depend>catkin</buildtool_depend>
+
+  <depend>rospy</depend>
+  <depend>roscpp</depend>
+
+  <depend>std_msgs</depend>
+  <depend>sensor_msgs</depend>
+
+  <exec_depend>cv_camera</exec_depend>
+
+  <exec_depend>aruco_detect</exec_depend>
+
+</package>

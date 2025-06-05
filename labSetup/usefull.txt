@@ -1,10 +1,17 @@
+- run camera config
+
+- In pioneer: (pass: acsdclsdc4)
+
 roscore
+rosrun p2os_driver p2os_driver _port:="/dev/ttyUSB0"
 
-rosparam set cv_camera/device_id 4
+- In laptop:
+    In catkin ws: 
+source devel/setup.bash
+roslaunch aruco_launcher aruco_detect_full.launch
 
-rosrun cv_camera cv_camera_node
+- To control:
+rosrun teleop_twist_keyboard teleop_twist_keyboard.py
 
-rosrun camera_calibration cameracalibrator.py --size 8x6 --square 0.60 image:=/cv_camera/image_raw camera:=c/cv_camera --no-service-check
-
-/tmp/calibrationdata.tar.gz'
-
+- To record:
+rosbag record -O testbag.bag /pose /cv_camera/image_raw/compressed /cv_camera/camera_info /fiducial_images /fiducial_transforms

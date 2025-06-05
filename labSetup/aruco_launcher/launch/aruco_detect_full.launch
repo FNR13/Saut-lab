@@ -1,0 +1,23 @@
+<launch>
+
+  <!-- Set the device ID for cv_camera -->
+  <param name="cv_camera/device_id" value="4" />
+
+  <!-- Launch the cv_camera node -->
+  <node name="cv_camera" pkg="cv_camera" type="cv_camera_node" output="screen" />
+
+  <!-- Launch the ArUco detection node -->
+  <node name="aruco_detect" pkg="aruco_detect" type="aruco_detect" output="screen">
+    <param name="dictionary" value="16" />
+    <param name="fiducial_len" value="0.085" />
+    <param name="do_pose_estimation" value="true" />
+    <param name="publish_images" value="true" />
+    <param name="image_transport" value="compressed" />
+    <param name="verbose" value="true" />
+
+    <!-- Topic remapping -->
+    <remap from="camera/compressed" to="/cv_camera/image_raw/compressed" />
+    <remap from="camera_info" to="/cv_camera/camera_info" />
+  </node>
+
+</launch>
