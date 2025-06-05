@@ -77,7 +77,7 @@ def resample_paths(paths,indexes):
     '''Resample the particles with replacement'''
     # Resampling 
     paths = paths[indexes, :, :]
-    return paths
+    return paths  
 
 # -----------------------------------------------------------------------------------------------------------------
 # Draw in simulation

@@ -25,9 +25,9 @@ def main():
 
     if use_range_only_fastslam:
         print("Using Range Only FastSLAM")
-         # Range Only FastSLAM parameters    
-        sensor_fov = 60 #vision range of the camera in º
-        Q_cov = 20.0 # Measurement noise for fast slam - for range
+        # Range Only FastSLAM parameters (from camera characterization file)    
+        sensor_fov = 1.0472 #field of view of the camera  
+        Q_cov = 0.1 # variance 
 
         # Range Only FastSLAM initialization
         fastslam = FastSLAM_RO(
@@ -41,9 +41,9 @@ def main():
 
     elif use_bearing_only_fastslam:
         print("Using Bearing Only FastSLAM")
-         # Bearing Only FastSLAM parameters    
+        # Bearing Only FastSLAM parameters (from camera characterization file)
         sensor_max_range = 2.0 #vision range of the camera in º
-        Q_cov = np.deg2rad(10) # Measurement noise for fast slam - for bearing
+        Q_cov = 0.174533 # Variance of the sensor for bearing
 
         # Bearing Only FastSLAM initialization
         fastslam = FastSLAM_RO(
@@ -57,7 +57,8 @@ def main():
 
     else:
         print("Using FastSLAM")
-        Q_cov = np.diag([20.0, np.radians(30)]) # Measurement noise for fast slam - for range and bearing
+        # FastSLAM parameters (from camera characterization file)
+        Q_cov = np.diag([20.0, 0.174533]) # Covariance matrix for range and bearing
         fastslam = FastSLAM(
             robot_initial_pose,
             N_PARTICLES,
@@ -119,6 +120,9 @@ def main():
             if use_range_only_fastslam:
                 # For Range Only FastSLAM, we only need the distance
                 z_all.append([marker_id, distance])
+            elif use_bearing_only_fastslam:
+                # For Bearing Only FastSLAM, we only need the bearing
+                z_all.append([marker_id, bearing])
             else:
                 z_all.append([marker_id, distance, bearing])
 
