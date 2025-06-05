@@ -16,12 +16,12 @@ def main():
     # FastSLAM initialization
     robot_initial_pose = (0, 0, 0)
 
-    use_range_only_fastslam = True
+    use_range_only_fastslam = False
+    use_bearing_only_fastslam = True
 
     N_PARTICLES = 150
     particles_odometry_uncertainty = (0.005, 0.05)  # (speed, angular rate)
     landmarks_initial_uncertainty = 1
-    Q_cov = np.diag([1, 1])  # Measurement noise covariance for range and bearing
 
     if use_range_only_fastslam:
         print("Using Range Only FastSLAM")
@@ -38,8 +38,26 @@ def main():
             Q_cov, 
             sensor_fov,
         )
+
+    elif use_bearing_only_fastslam:
+        print("Using Bearing Only FastSLAM")
+         # Bearing Only FastSLAM parameters    
+        sensor_max_range = 2.0 #vision range of the camera in º
+        Q_cov = np.deg2rad(10) # Measurement noise for fast slam - for bearing
+
+        # Bearing Only FastSLAM initialization
+        fastslam = FastSLAM_RO(
+            robot_initial_pose,
+            N_PARTICLES,
+            particles_odometry_uncertainty,
+            landmarks_initial_uncertainty,
+            Q_cov, 
+            sensor_max_range,
+        )
+
     else:
         print("Using FastSLAM")
+        Q_cov = np.diag([20.0, np.radians(30)]) # Measurement noise for fast slam - for range and bearing
         fastslam = FastSLAM(
             robot_initial_pose,
             N_PARTICLES,
@@ -48,7 +66,7 @@ def main():
             Q_cov,
         )
 
-        ## Ground Truth landmarks and trajectories
+    ## Ground Truth landmarks and trajectories
     # Define landmarks and trajectories
     real_landmarks = np.array([
         (-0.08, -0.77), (0.24, 0.40), (-0.54, 1.33), (-0.52, 2.75),
@@ -177,7 +195,14 @@ def main():
                 aligned_estimation_color, label='Aligned Most Probable Path', linewidth=1)
     ax.scatter(aligned[:, 0], aligned[:, 1], 
                 marker='x', c=aligned_estimation_color, label='Aligned Landmarks')
-    ax.set_title('FastSLAM (Aligned Estimation)')
+
+    if use_range_only_fastslam:
+        ax.set_title('Range Only FastSLAM (Aligned Estimation)')
+    elif use_bearing_only_fastslam:
+        ax.set_title('Bearing Only FastSLAM (Aligned Estimation)')
+    else:
+        ax.set_title('FastSLAM (Aligned Estimation)') 
+
     ax.set_xlabel('X')
     ax.set_ylabel('Y')
     ax.legend(loc='center left', bbox_to_anchor=(1, 0.5))
@@ -213,7 +238,14 @@ def main():
     ax1.plot(most_probable_path[:,0], most_probable_path[:,1], 
                 particle_color, label='Estimated Most Probable Path', linewidth=1)
     ax1.scatter(estimated[:, 0], estimated[:, 1], marker='x', c=particle_color, label='Estimated Landmarks')
-    ax1.set_title('FastSLAM (Odometry & Non-Aligned Estimation)')
+    
+    if use_range_only_fastslam:
+        ax1.set_title('Range Only FastSLAM (Odometry & Non-Aligned Estimation)')
+    elif use_bearing_only_fastslam:
+        ax1.set_title('Bearing Only FastSLAM (Odometry & Non-Aligned Estimation)')
+    else:
+        ax1.set_title('FastSLAM (Odometry & Non-Aligned Estimation)') 
+
     ax1.set_xlabel('X')
     ax1.set_ylabel('Y')
     ax1.legend(loc='center left', bbox_to_anchor=(1, 0.5))

@@ -28,7 +28,6 @@ def main():
     N_PARTICLES = 100
     particles_odometry_uncertainty = (0.001, 0.05)  # (speed, anngular rate)
     landmarks_initial_uncertainty = 100  # Initial uncertainty for landmarks
-    Q_cov = np.diag([20.0, np.radians(30)]) # Measurement noise for fast slam - for range and bearing
 
     if use_range_only_fastslam:
         print("Using Range Only FastSLAM")
@@ -64,6 +63,7 @@ def main():
 
     else:
         print("Using FastSLAM")
+        Q_cov = np.diag([20.0, np.radians(30)]) # Measurement noise for fast slam - for range and bearing
         fastslam = FastSLAM(
             robot_initial_pose,
             N_PARTICLES,
@@ -72,7 +72,7 @@ def main():
             Q_cov,
         )
 
-        # Noise implementations
+    # Noise implementations
     use_camera_noise = False
     distance_noise_power = 20
     bearing_noise_power = np.radians(5)
