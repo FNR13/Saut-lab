@@ -177,7 +177,7 @@ def read_bag_data(bag_file):
         angular_z = msg.twist.twist.angular.z
         pose_vectors.append([t.to_sec(), x, y, orientation_z, linear_x, angular_z])
         pose_times.append(t.to_sec())
-
+    
     for topic, msg, t in bag.read_messages(topics=['/fiducial_transforms']):
         observations = []
         for transform in msg.transforms:
@@ -190,7 +190,7 @@ def read_bag_data(bag_file):
         obs_times.append(t.to_sec())
 
     bag.close()
-
+    
     # Align time to start at zero
     time_bias = min(pose_times[0], obs_times[0])
     pose_times = [t - time_bias for t in pose_times]
@@ -210,6 +210,8 @@ def read_bag_data(bag_file):
     interp_angular_z = np.interp(obs_times, pose_vectors[:, 0], pose_vectors[:, 5])
 
     return obs_times, interp_x, interp_y, interp_orientation_z, interp_linear_x, interp_angular_z, obs_data
+    #return obs_times, obs_data """Use this line only for camera stochastics"
+
 
 # -----------------------------------------------------------------------------------------------------------------
 # Test

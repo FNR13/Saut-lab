@@ -28,13 +28,14 @@ except ModuleNotFoundError:
 # Class Definition
 
 class Particle:
-    def __init__(self, odometry_uncertainty, landmark_uncertainty, Q_cov, sensor_max_range):
+    def __init__(self, odometry_uncertainty, landmark_uncertainty, Q_cov, sensor_max_range, sensor_min_range):
         self.x = 0
         self.y = 0
         self.theta = 0
         self.weight = 1
 
         self.sensor_max_range = sensor_max_range
+        self.sensor_min_range = sensor_min_range
         self.odometry_noise = odometry_uncertainty
         self.landmark_uncertainty = landmark_uncertainty
         self.Q_cov = Q_cov
@@ -77,7 +78,7 @@ class Particle:
             bearing  = z
             theta = wrap_angle_rad(self.theta + bearing) #Can give problems 
             
-            r_min = 0
+            r_min = self.sensor_min_range
             r_max = self.sensor_max_range
             rand_range = np.random.uniform(r_min, r_max)  
           
@@ -98,8 +99,6 @@ class Particle:
 
     def compute_weight(self, idx, z, pose):
             
-            #z = z.reshape(2, 1)
-
             xf = self.landmarks_EKF[idx].landmark_position
             Pf = self.landmarks_EKF[idx].landmark_covariances
 
@@ -128,10 +127,11 @@ def test_particle():
     # Create a particle with some uncertainty
     odometry_uncertainty = (0.01, 0.01)
     landmark_uncertainty = 100.0
-    Q_cov = np.deg2rad(10)
-    sensor_max_range = 2.0
+    Q_cov = 1.47227856e-10       
+    sensor_max_range = 5.35686663476375
+    sensor_min_range = 0.33607217464420264
 
-    p = Particle(odometry_uncertainty, landmark_uncertainty, Q_cov, sensor_max_range)
+    p = Particle(odometry_uncertainty, landmark_uncertainty, Q_cov, sensor_max_range, sensor_min_range)
 
     # Set initial pose
     print("Initial pose:", p.x, p.y, p.theta)

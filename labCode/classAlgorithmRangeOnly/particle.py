@@ -121,8 +121,8 @@ def test_particle():
     # Create a particle with some uncertainty
     odometry_uncertainty = (0.01, 0.01)
     landmark_uncertainty = 100.0
-    Q_cov = np.deg2rad(10)
-    sensor_fov = 60 #vision range of the camera in º
+    Q_cov = 5.64628409e-07
+    sensor_fov = 49.56 #vision range of the camera in º
 
     p = Particle(odometry_uncertainty, landmark_uncertainty, Q_cov, sensor_fov)
 

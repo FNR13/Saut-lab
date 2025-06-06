@@ -28,7 +28,7 @@ except ModuleNotFoundError:
 # Class Definition
 
 class FastSLAM_BO:
-    def __init__(self, robot_initial_pose, num_particles, particles_odometry_uncertainty, landmarks_initial_uncertainty, Q_cov, sensor_max_range):
+    def __init__(self, robot_initial_pose, num_particles, particles_odometry_uncertainty, landmarks_initial_uncertainty, Q_cov, sensor_max_range, sensor_min_range):
 
         self.robot_initial_pose = robot_initial_pose  # (x, y, theta)
 
@@ -37,15 +37,15 @@ class FastSLAM_BO:
 
         self.Q_cov = Q_cov  # Measurement noise covariance for bearing
 
-        self.particles = self._init_particles(particles_odometry_uncertainty, landmarks_initial_uncertainty, sensor_max_range)
+        self.particles = self._init_particles(particles_odometry_uncertainty, landmarks_initial_uncertainty, sensor_max_range, sensor_min_range)
         self.resampled_indexes = [] #list containing the resampled indexes 
         self.best_index = 0
 
 
     # Particle Filter Management
-    def _init_particles(self, particles_odometry_uncertainty, landmarks_initial_uncertainty, sensor_max_range):
+    def _init_particles(self, particles_odometry_uncertainty, landmarks_initial_uncertainty, sensor_max_range, sensor_min_range):
         return [
-            Particle(particles_odometry_uncertainty, landmarks_initial_uncertainty, self.Q_cov, sensor_max_range)
+            Particle(particles_odometry_uncertainty, landmarks_initial_uncertainty, self.Q_cov, sensor_max_range, sensor_min_range)
             for _ in range(self.num_particles)
         ]
 
@@ -92,7 +92,8 @@ class FastSLAM_BO:
                 p.odometry_noise, 
                 p.landmark_uncertainty, 
                 p.Q_cov,
-                p.sensor_max_range
+                p.sensor_max_range,
+                p.sensor_min_range
             )
             # Copy pose and weight
             new_p.x = p.x
@@ -142,12 +143,13 @@ def test_fastslam():
     num_particles = 3
     particles_odometry_uncertainty = (0.1, 0.01)  # (speed, angular rate)
     landmarks_initial_uncertainty = 10  # Initial uncertainty for landmarks
-    Q_cov = np.radians(10) 
+    Q_cov = 1.47227856e-10
 
-    sensor_max_range = 2.0
+    sensor_max_range = 5.35686663476375
+    sensor_min_range = 0.33607217464420264
 
     # Create FastSLAM object
-    slam = FastSLAM_BO(robot_initial_pose, num_particles, particles_odometry_uncertainty, landmarks_initial_uncertainty, Q_cov, sensor_max_range)
+    slam = FastSLAM_BO(robot_initial_pose, num_particles, particles_odometry_uncertainty, landmarks_initial_uncertainty, Q_cov, sensor_max_range, sensor_min_range)
 
     # Simulate motion update
     v = 1
@@ -218,10 +220,11 @@ def test_resampling():
     print("Testing resampling...")
 
     # Create FastSLAM with 5 particles
-    sensor_max_range = 2.0 #vision range of the camera in º
+    sensor_max_range = 5.35686663476375
+    sensor_min_range = 0.33607217464420264
 
     # Create FastSLAM object
-    slam = FastSLAM_BO([0,0,0], 5, (0.1, 0.01), 10, np.eye(2), sensor_max_range)
+    slam = FastSLAM_BO([0,0,0], 5, (0.1, 0.01), 10, np.eye(2), sensor_max_range, sensor_min_range)
     
     # Assign distinct weights
     for i, p in enumerate(slam.particles):

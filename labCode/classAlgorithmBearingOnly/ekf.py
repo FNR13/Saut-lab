@@ -135,7 +135,7 @@ def test_ekf():
     initial_landmark_position = np.array([1.5, 2.5])
 
     initial_landmark_covariances = np.eye(2) * 1.0
-    Q_cov = np.deg2rad(10)
+    Q_cov = 1.47227856e-10
 
     # Create EKF object with the initial guess
     ekf = ExtendedKalmanFilter(initial_landmark_position, initial_landmark_covariances, Q_cov)

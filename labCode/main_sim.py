@@ -22,7 +22,7 @@ def main():
     # robot_initial_pose = (0, 0, 0)
 
     use_range_only_fastslam = False
-    use_bearing_only_fastslam = True
+    use_bearing_only_fastslam = False
 
     # FastSLAM initialization
     N_PARTICLES = 100
@@ -31,9 +31,9 @@ def main():
 
     if use_range_only_fastslam:
         print("Using Range Only FastSLAM")
-         # Range Only FastSLAM parameters    
-        sensor_fov = 60 #vision range of the camera in º
-        Q_cov = 20.0 # Measurement noise for fast slam - for range
+        # Range Only FastSLAM parameters (from camera characterization file)    
+        sensor_fov = 49.56      # Field of view of the camera in degrees   
+        Q_cov = 5.64628409e-07  # Variance of the sensor for range
 
         # Range Only FastSLAM initialization
         fastslam = FastSLAM_RO(
@@ -47,23 +47,28 @@ def main():
 
     elif use_bearing_only_fastslam:
         print("Using Bearing Only FastSLAM")
-         # Bearing Only FastSLAM parameters    
-        sensor_max_range = 2.0 #vision range of the camera in º
-        Q_cov = np.deg2rad(10) # Measurement noise for fast slam - for bearing
+        # Bearing Only FastSLAM parameters (from camera characterization file)
+        sensor_max_range = 5.35686663476375     # Maximum vision range of the camera 
+        sensor_min_range = 0.33607217464420264  # Minimum vision range of the camera 
+        Q_cov = 1.47227856e-10                  # Variance of the sensor for bearing
 
         # Bearing Only FastSLAM initialization
-        fastslam = FastSLAM_RO(
+        fastslam = FastSLAM_BO(
             robot_initial_pose,
             N_PARTICLES,
             particles_odometry_uncertainty,
             landmarks_initial_uncertainty,
             Q_cov, 
             sensor_max_range,
+            sensor_min_range,
         )
 
     else:
         print("Using FastSLAM")
-        Q_cov = np.diag([20.0, np.radians(30)]) # Measurement noise for fast slam - for range and bearing
+        # FastSLAM parameters (from camera characterization file)
+        Q_cov = np.diag([5.64628409e-07, 1.47227856e-10]) # Covariance matrix for range and bearing
+        #Q_cov = np.diag([5.6, math.radians(10)]) # Covariance matrix for range and bearing
+
         fastslam = FastSLAM(
             robot_initial_pose,
             N_PARTICLES,

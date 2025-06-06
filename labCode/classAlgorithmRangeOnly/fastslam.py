@@ -142,9 +142,9 @@ def test_fastslam():
     num_particles = 3
     particles_odometry_uncertainty = (0.1, 0.01)  # (speed, angular rate)
     landmarks_initial_uncertainty = 10  # Initial uncertainty for landmarks
-    Q_cov = 20.0  # Measurement noise for fast slam - for range 
+    Q_cov = 5.64628409e-07 # Measurement noise for fast slam - for range 
 
-    sensor_fov = 60 #vision range of the camera in º
+    sensor_fov = 49.56 #vision range of the camera in º
 
     # Create FastSLAM object
     slam = FastSLAM_RO(robot_initial_pose, num_particles, particles_odometry_uncertainty, landmarks_initial_uncertainty, Q_cov, sensor_fov)
@@ -218,7 +218,7 @@ def test_resampling():
     print("Testing resampling...")
 
     # Create FastSLAM with 5 particles
-    sensor_fov = 60 #vision range of the camera in º
+    sensor_fov = 49.56 #vision range of the camera in º
 
     # Create FastSLAM object
     slam = FastSLAM_RO([0,0,0], 5, (0.1, 0.01), 10, np.eye(2), sensor_fov)
