@@ -11,11 +11,11 @@ camera_offset = 0
 
 
 paths = []
-paths.append('/Users/usuario/Desktop/Máster/Autonomous systems/Project/Saut-lab/Bags/static0_5meters.bag')
-paths.append('/Users/usuario/Desktop/Máster/Autonomous systems/Project/Saut-lab/Bags/static0_83meters.bag')
-paths.append('/Users/usuario/Desktop/Máster/Autonomous systems/Project/Saut-lab/Bags/static0_8351meters.bag')
-paths.append('/Users/usuario/Desktop/Máster/Autonomous systems/Project/Saut-lab/Bags/static1meter.bag')
-paths.append('/Users/usuario/Desktop/Máster/Autonomous systems/Project/Saut-lab/Bags/static2meters.bag')
+paths.append('../bags/configCamera/static0_5meters.bag')
+paths.append('../bags/configCamera/static0_83meters.bag')
+paths.append('../bags/configCamera/static0_8351meters.bag')
+paths.append('../bags/configCamera/static1meter.bag')
+paths.append('../bags/configCamera/static2meters.bag')
 
 root = 'Q_cov'
 Q_covariances = {}
@@ -27,7 +27,7 @@ for i in range(len(paths)):
     name = f"{root}_{i}" 
     
     bag_file = paths[i]
-    time, obs_data = read_bag_data(bag_file)
+    time, obs_data = read_bag_obs_data(bag_file)
 
     # Obtain measurements 
     measurements_range = []
@@ -57,7 +57,7 @@ for i in range(len(paths)):
 
 count = 0
 for key, cov_matrix in Q_covariances.items():
-    sum_cov = np.zeros_like(cov_matrix)  # matriz de ceros con misma forma
+    sum_cov = np.zeros_like(cov_matrix)  # matriz de zeros con mesma forma
     sum_cov += cov_matrix
     count += 1
 
@@ -69,8 +69,8 @@ print("Q_cov from statistics analysis:\n", Q_cov)
 
 #--------------------------------------------------------------------------------------------------------
 # Max range of the camera
-bag_file = '/Users/usuario/Desktop/Máster/Autonomous systems/Project/Saut-lab/Bags/range_max.bag'
-time, obs_data = read_bag_data(bag_file)
+bag_file = '../bags/configCamera/range_max.bag'
+time, obs_data = read_bag_obs_data(bag_file)
 
 # Obtain measurements 
 measurements_range = []
@@ -96,8 +96,8 @@ print('Max range of the camera:',max_range)
 
 #--------------------------------------------------------------------------------------------------------
 # Field of view of the camera
-bag_file = '/Users/usuario/Desktop/Máster/Autonomous systems/Project/Saut-lab/Bags/stbearing_max.bag'
-time, obs_data = read_bag_data(bag_file)
+bag_file = '../bags/configCamera/stbearing_max.bag'
+time, obs_data = read_bag_obs_data(bag_file)
 
 # Obtain measurements 
 measurements_range = []

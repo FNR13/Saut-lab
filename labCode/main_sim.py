@@ -21,23 +21,27 @@ def main():
     robot_initial_pose = (200, 300, math.pi/2)
     # robot_initial_pose = (0, 0, 0)
 
+    # FastSLAM initialization
+
+        # Tipe of slam
     use_range_only_fastslam = False
     use_bearing_only_fastslam = False
 
-    # FastSLAM initialization
-    N_PARTICLES = 100
-    particles_odometry_uncertainty = (0.001, 0.05)  # (speed, anngular rate)
-    landmarks_initial_uncertainty = 100  # Initial uncertainty for landmarks
+        # Tuning parameters
+    N_PARTICLES = 150
+    particles_odometry_uncertainty = (0.005, 0.05)  # (speed, angular rate)
+    landmarks_initial_uncertainty = 1
+    Q_cov_range = 5.64628409e-07    # Variance of the sensor for range
+    Q_cov_bearing = 1.47227856e-10  # Variance of the sensor for bearing
 
     if use_range_only_fastslam:
         print("Using Range Only FastSLAM")
         # Range Only FastSLAM parameters (from camera characterization file)    
-        sensor_fov = 49.56      # Field of view of the camera in degrees   
-        Q_cov = 5.64628409e-07  # Variance of the sensor for range
+        sensor_fov = 49.56   # Field of view of the camera in degrees   
+        Q_cov = Q_cov_range  
 
         # Range Only FastSLAM initialization
         fastslam = FastSLAM_RO(
-            robot_initial_pose,
             N_PARTICLES,
             particles_odometry_uncertainty,
             landmarks_initial_uncertainty,
@@ -50,11 +54,10 @@ def main():
         # Bearing Only FastSLAM parameters (from camera characterization file)
         sensor_max_range = 5.35686663476375     # Maximum vision range of the camera 
         sensor_min_range = 0.33607217464420264  # Minimum vision range of the camera 
-        Q_cov = 1.47227856e-10                  # Variance of the sensor for bearing
+        Q_cov = Q_cov_bearing                 
 
         # Bearing Only FastSLAM initialization
         fastslam = FastSLAM_BO(
-            robot_initial_pose,
             N_PARTICLES,
             particles_odometry_uncertainty,
             landmarks_initial_uncertainty,
@@ -66,16 +69,17 @@ def main():
     else:
         print("Using FastSLAM")
         # FastSLAM parameters (from camera characterization file)
-        Q_cov = np.diag([5.64628409e-07, 1.47227856e-10]) # Covariance matrix for range and bearing
-        #Q_cov = np.diag([5.6, math.radians(10)]) # Covariance matrix for range and bearing
+        Q_cov = np.diag([Q_cov_range, Q_cov_bearing]) # Covariance matrix for range and bearing
 
         fastslam = FastSLAM(
-            robot_initial_pose,
             N_PARTICLES,
             particles_odometry_uncertainty,
             landmarks_initial_uncertainty,
             Q_cov,
         )
+
+    # -----------------------------------------------------------------------------------------------------------------
+    # Sim tuning
 
     # Noise implementations
     use_camera_noise = False
@@ -85,6 +89,9 @@ def main():
     use_odometry_noise = True
     odemetry_noise_power = 0.05
 
+    # -----------------------------------------------------------------------------------------------------------------
+    # Sim initiations
+    
     # Gound truth path
     gt_path = []  
 

@@ -11,29 +11,48 @@ from classAlgorithmBearingOnly.fastslam import FastSLAM_BO
 
 # -----------------------------------------------------------------------------------------------------------------
 def main():
-    bag_file = "/Users/usuario/Desktop/Máster/Autonomous systems/Project/Saut-lab/Bags/square2-30-05-2025.bag"
+    # "../bags/square2-30-05-2025.bag"
+    bag_file = "../bags/straight.bag"
     time, x, y, theta, velocity_vector, omega_vector, obs_data = read_bag_data(bag_file)
-    camera_offset = - math.pi/2
 
+    # Data conditions:
+    camera_offset = 0
+
+    dataset1 = False# If false its from dataset 2
+
+    straight_trajectory = True
+    L_trajectory = False
+    square_trajectory = False
+    inverse = False # For inverse straight and L trajectories
+    
+    just_mapping = True
+
+    
+    # -----------------------------------------------------------------------------------------------------------------
     # FastSLAM initialization
-    robot_initial_pose = (0, 0, 0)
 
+        # Tipe of slam
     use_range_only_fastslam = False
     use_bearing_only_fastslam = False
 
+        # Tuning parameters
     N_PARTICLES = 150
     particles_odometry_uncertainty = (0.005, 0.05)  # (speed, angular rate)
     landmarks_initial_uncertainty = 1
+    Q_cov_range = 5.64628409e-07
+    Q_cov_bearing = 1.47227856e-10
+    Q_cov_range = 1
+    Q_cov_bearing = 1
+
 
     if use_range_only_fastslam:
         print("Using Range Only FastSLAM")
         # Range Only FastSLAM parameters (from camera characterization file)    
-        sensor_fov = 49.56      # Field of view of the camera in degrees   
-        Q_cov = 5.64628409e-07  # Variance of the sensor for range
+        sensor_fov = 49.56   # Field of view of the camera in degrees   
+        Q_cov = Q_cov_range  # Variance of the sensor for range
 
         # Range Only FastSLAM initialization
         fastslam = FastSLAM_RO(
-            robot_initial_pose,
             N_PARTICLES,
             particles_odometry_uncertainty,
             landmarks_initial_uncertainty,
@@ -46,11 +65,10 @@ def main():
         # Bearing Only FastSLAM parameters (from camera characterization file)
         sensor_max_range = 5.35686663476375     # Maximum vision range of the camera 
         sensor_min_range = 0.33607217464420264  # Minimum vision range of the camera 
-        Q_cov = 1.47227856e-10                  # Variance of the sensor for bearing
+        Q_cov = Q_cov_bearing                  # Variance of the sensor for bearing
 
         # Bearing Only FastSLAM initialization
         fastslam = FastSLAM_BO(
-            robot_initial_pose,
             N_PARTICLES,
             particles_odometry_uncertainty,
             landmarks_initial_uncertainty,
@@ -62,32 +80,98 @@ def main():
     else:
         print("Using FastSLAM")
         # FastSLAM parameters (from camera characterization file)
-        Q_cov = np.diag([5.64628409e-07, 1.47227856e-10]) # Covariance matrix for range and bearing
+        Q_cov = np.diag([Q_cov_range, Q_cov_bearing]) # Covariance matrix for range and bearing
         #Q_cov = np.diag([5.6, math.radians(10)]) # Covariance matrix for range and bearing
 
         fastslam = FastSLAM(
-            robot_initial_pose,
             N_PARTICLES,
             particles_odometry_uncertainty,
             landmarks_initial_uncertainty,
             Q_cov,
         )
-
-    ## Ground Truth landmarks and trajectories
-    # Define landmarks and trajectories
-    real_landmarks = np.array([
+    # -----------------------------------------------------------------------------------------------------------------
+    # Ground Truth landmarks and trajectories
+        # Define landmarks and trajectories for data set 1
+    real_landmarks_map1 = np.array([
         (-0.08, -0.77), (0.24, 0.40), (-0.54, 1.33), (-0.52, 2.75),
         (-1.80, -0.77), (-1.30, 1.25), (-1.23, 2.80), (-1.30, 3.70),
         (-3.73, 3.35)
     ])
-    real_landmarks_id = [11, 10, 9 ,8, 12, 13, 14, 15, 16]
+    real_landmarks_id_map1 = [11, 10, 9 ,8, 12, 13, 14, 15, 16]
 
-    square_Trajectory = np.array([
+    real_square_trajectory = np.array([
         (0, -0.3), (0, 4.5), (-1.8, 4.5), (-1.8, -0.3), (0, -0.3)
     ])
-    L_Trajectory = np.array([
+
+    real_L_trajectory_1 = np.array([
         (0, 0), (0, 4.5), (-3.9, 4.5)
     ])
+
+    # Define landmarks and trajectories for data set 2
+    # --- MAP ---
+    real_landmarks_map2 = np.array([
+        (0, -0.30),      # 297
+        (-0.88, 0.26),   # 557
+        (-0.70, 1.23),   # 934
+        (0.80, 1.15),    # 572
+        (0.80, 2.85),    # 206
+        (0.80, 4.21),    # 545
+        (0.80, 6.06),    # 360
+        (0.50, 8.01),    # 433
+        (-0.73, 8.01),   # 60
+        (-0.90, 5.93),   # 337
+        (-0.62, 5.43),   # 105
+        (-0.41, 4.45),   # 952
+        (-0.41, 2.33),   # 124
+        (-0.64, 1.35),   # 934
+        (-2.00, 6.26),   # 836
+        (-2.87, 7.99),   # 844
+    ])
+    real_landmarks_id_map2 = [297, 557, 934, 572, 206, 545, 360, 433, 60, 337, 105, 952, 124, 934]
+
+    # Straight Trajectory
+    real_straight_trajectory = np.array([
+        (0, 0), (0, 7.31)
+    ])
+
+    # L trajectory
+    real_L_trajectory_2 = np.array([
+        (0, 0), (0, 7.31), (-3.60, 7.31)
+    ])
+
+    # On just mapping this id was changed
+    landmark_change = (-3.77,-7.14)
+
+    # Get right landmarks
+    if dataset1:
+        real_landmarks = real_landmarks_map1
+        real_landmarks_id = real_landmarks_id_map1
+    else:
+        real_landmarks = real_landmarks_map2
+        real_landmarks_id = real_landmarks_id_map2
+
+    if straight_trajectory:
+        real_trajectory = real_straight_trajectory
+        legend = 'Straight Trajectory'
+
+    elif L_trajectory:
+        if dataset1:
+            real_trajectory = real_L_trajectory_1
+        else:
+            real_trajectory = real_L_trajectory_2
+        legend = 'L Trajectory'
+
+    elif square_trajectory:
+        real_trajectory = real_square_trajectory
+        legend = 'Square Trajectory'
+    elif just_mapping: 
+        real_landmarks_map2[1] = landmark_change
+    else:
+        print("Please select a trajectory option.")
+        return
+
+    if inverse:
+        legend = " Inverse " + legend
 
     # Array for saving all paths
     paths = np.zeros((N_PARTICLES, 1, 3), dtype=float)
@@ -152,6 +236,9 @@ def main():
     estimated_landmarks = []
     estimated_landmarks_covariance = []
 
+    print(best_particle.landmarks_id)
+    print(best_particle.landmarks_position)
+
     for id in best_particle.landmarks_id:
         idx_real = real_landmarks_id.index(id) if id in real_landmarks_id else None
         idx_estimated = best_particle.landmarks_id.index(id) if id in best_particle.landmarks_id else None
@@ -194,15 +281,17 @@ def main():
 
     # --- Figure 1: Ground truth and aligned estimations ---
     fig, ax = plt.subplots()
-    ax.plot(square_Trajectory[:, 0], square_Trajectory[:, 1], 
-             'r--', label='Ground truth: Square trajectory', linewidth=2)
-    # ax.plot(L_Trajectory[:, 0], L_Trajectory[:, 1], 
-    #   'r--', label='Ground truth: L trajectory', linewidth=2)
+
+    if not just_mapping:
+        ax.plot(real_trajectory[:, 0], real_trajectory[:, 1], 
+                'r--', label='Ground truth: ' + legend, linewidth=2)
 
     ax.scatter(identified_real_landmarks[:, 0], identified_real_landmarks[:, 1],
                 facecolors='none', edgecolors=ground_truth_color, marker='o', label='Real Landmarks', linewidths=2)
+    
     ax.plot(aligned_most_probable_path[:,0], aligned_most_probable_path[:,1], 
                 aligned_estimation_color, label='Aligned Most Probable Path', linewidth=1)
+    
     ax.scatter(aligned[:, 0], aligned[:, 1], 
                 marker='x', c=aligned_estimation_color, label='Aligned Landmarks')
 

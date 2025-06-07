@@ -212,6 +212,34 @@ def read_bag_data(bag_file):
     return obs_times, interp_x, interp_y, interp_orientation_z, interp_linear_x, interp_angular_z, obs_data
     #return obs_times, obs_data """Use this line only for camera stochastics"
 
+def read_bag_obs_data(bag_file):
+    import rosbag
+
+    bag = rosbag.Bag(bag_file)
+    obs_times = []
+    obs_data = []
+
+    for topic, msg, t in bag.read_messages(topics=['/fiducial_transforms']):
+        observations = []
+        for transform in msg.transforms:
+            fiducial_id = transform.fiducial_id
+            tx = transform.transform.translation.x
+            ty = transform.transform.translation.y
+            tz = transform.transform.translation.z
+            observations.append([fiducial_id, tx, ty, tz])
+        obs_data.append([t.to_sec(), observations])
+        obs_times.append(t.to_sec())
+
+    bag.close()
+
+    # Align time to start at zero
+    if obs_times:
+        time_bias = obs_times[0]
+        obs_times = [t - time_bias for t in obs_times]
+        for entry in obs_data:
+            entry[0] -= time_bias
+
+    return obs_times, obs_data
 
 # -----------------------------------------------------------------------------------------------------------------
 # Test

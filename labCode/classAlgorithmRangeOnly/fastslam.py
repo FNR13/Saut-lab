@@ -28,9 +28,7 @@ except ModuleNotFoundError:
 # Class Definition
 
 class FastSLAM_RO:
-    def __init__(self, robot_initial_pose, num_particles, particles_odometry_uncertainty, landmarks_initial_uncertainty, Q_cov, sensor_fov):
-
-        self.robot_initial_pose = robot_initial_pose  # (x, y, theta)
+    def __init__(self, num_particles, particles_odometry_uncertainty, landmarks_initial_uncertainty, Q_cov, sensor_fov):
 
         # Particle Filter parameters
         self.num_particles = num_particles
@@ -147,7 +145,7 @@ def test_fastslam():
     sensor_fov = 49.56 #vision range of the camera in º
 
     # Create FastSLAM object
-    slam = FastSLAM_RO(robot_initial_pose, num_particles, particles_odometry_uncertainty, landmarks_initial_uncertainty, Q_cov, sensor_fov)
+    slam = FastSLAM_RO( num_particles, particles_odometry_uncertainty, landmarks_initial_uncertainty, Q_cov, sensor_fov)
 
     # Simulate motion update
     v = 1
@@ -221,7 +219,7 @@ def test_resampling():
     sensor_fov = 49.56 #vision range of the camera in º
 
     # Create FastSLAM object
-    slam = FastSLAM_RO([0,0,0], 5, (0.1, 0.01), 10, np.eye(2), sensor_fov)
+    slam = FastSLAM_RO( 5, (0.1, 0.01), 10, np.eye(2), sensor_fov)
     
     # Assign distinct weights
     for i, p in enumerate(slam.particles):
