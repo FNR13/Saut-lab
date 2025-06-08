@@ -1,6 +1,8 @@
 import math
 import numpy as np
 import matplotlib.pyplot as plt
+import time
+
 
 from classUtils.utils import *
 
@@ -12,20 +14,20 @@ from classAlgorithmBearingOnly.fastslam import FastSLAM_BO
 # -----------------------------------------------------------------------------------------------------------------
 def main():
     # "../bags/square2-30-05-2025.bag"
-    bag_file = "../bags/square2-30-05-2025.bag"
-    time, x, y, theta, velocity_vector, omega_vector, obs_data = read_bag_data(bag_file)
+    bag_file = "/Users/usuario/Desktop/Máster/Autonomous systems/Project/Saut-lab/Bags/map2.bag"
+    time_, x, y, theta, velocity_vector, omega_vector, obs_data = read_bag_data(bag_file)
 
     # Data conditions:
     camera_offset = 0
 
-    dataset1 = True# If false its from dataset 2
+    dataset1 = False# If false its from dataset 2
 
     straight_trajectory = False
     L_trajectory = False
-    square_trajectory = True
+    square_trajectory = False
     inverse = False # For inverse straight and L trajectories
     
-    just_mapping = False
+    just_mapping = True
 
     
     # -----------------------------------------------------------------------------------------------------------------
@@ -176,10 +178,14 @@ def main():
     # Array for saving all paths
     paths = np.zeros((N_PARTICLES, 1, 3), dtype=float)
 
+    # List for saving the iteration time
+    iteration_time = []
+
     # -----------------------------------------------------------------------------------------------------------------------------
     # Main loop: step through bag data
-    for i in range(1, len(time)):
-        dt = time[i] - time[i-1]
+    for i in range(1, len(time_)):
+        start_clock = time.time() 
+        dt = time_[i] - time_[i-1]
         velocity = velocity_vector[i]
         omega = omega_vector[i]
 
@@ -223,9 +229,12 @@ def main():
             # Resample the paths in the same manner as the particles
             paths = resample_paths(paths, fastslam.resampled_indexes)
 
+        stop_clock = time.time()
+        iteration_time.append(stop_clock - start_clock)
+
     # -----------------------------------------------------------------------------------------------------------------
     # Data processing
-    
+
     # Select best particle and extract information
     best_particle = fastslam.get_best_particle()
     best_path = fastslam.particles.index(best_particle)
@@ -268,7 +277,8 @@ def main():
     
     aligned = aligned_estimated_landmarks.copy()
 
-    RMSE = np.sqrt(np.mean(np.sum((aligned - identified_real_landmarks) ** 2, axis=1)))
+    # Performance meaurement for identification
+    RMSE_landmarks = np.sqrt(np.mean(np.sum((aligned - identified_real_landmarks) ** 2, axis=1)))
     # ----------
     # Extract the best path
 
@@ -280,6 +290,25 @@ def main():
         # Apply the same rotation and translation as for landmarks
         # NOTE: IF just one landmark was seen, the rotation will be identity, so it won work
     aligned_most_probable_path = (centered_path @ Rotation) + real_center
+    # ----------
+    # Performance meaurement for path 
+
+    odometry_path = np.column_stack((x.copy(), y.copy()))
+    RMSE_path = np.sqrt(np.mean(np.sum((odometry_path - most_probable_path) ** 2, axis=1)))
+    # ----------
+    # Save the iteration time to the computer
+
+    iteration_time = np.array(iteration_time)
+
+    if use_range_only_fastslam:
+        file_name  = 'iteration_time_ROFastSLAM_'
+    elif use_bearing_only_fastslam:
+        file_name  = 'iteration_time_BOFastSLAM_'
+    else:
+        file_name  = 'iteration_time_FastSLAM_'
+
+    file_name += (str(N_PARTICLES) + '_particles.npy')
+    np.save(file_name, iteration_time)
 
     # -----------------------------------------------------------------------------------------------------------------
     # -----------------------------------------------------------------------------------------------------------------
@@ -318,7 +347,7 @@ def main():
 
     # Add RMSE text box to Figure 1
     ax.text(
-        0.02, 0.98, f'RMSE: {RMSE:.3f}',
+        0.02, 0.98, f'RMSE landmarks: {RMSE_landmarks:.3f}',
         transform=ax.transAxes,
         fontsize=10,
         verticalalignment='top',
@@ -356,9 +385,18 @@ def main():
 
     ax1.set_xlabel('X')
     ax1.set_ylabel('Y')
-    ax1.legend(loc='center left', bbox_to_anchor=(1, 0.5))
+    ax1.legend(loc='best', bbox_to_anchor=(1, 0.5))
     ax1.grid(True)
-    
+
+    # Add RMSE text box to Figure 2
+    ax1.text(
+        0.02, 0.98, f'RMSE path: {RMSE_path:.3f}',
+        transform=ax1.transAxes,
+        fontsize=10,
+        verticalalignment='top',
+        bbox=dict(boxstyle='round', facecolor='white', alpha=0.8)
+    )
+
     plt.show()
 
 # -----------------------------------------------------------------------------------------------------------------
