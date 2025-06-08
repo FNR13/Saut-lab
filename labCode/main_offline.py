@@ -12,20 +12,20 @@ from classAlgorithmBearingOnly.fastslam import FastSLAM_BO
 # -----------------------------------------------------------------------------------------------------------------
 def main():
     # "../bags/square2-30-05-2025.bag"
-    bag_file = "../bags/straight.bag"
+    bag_file = "../bags/square2-30-05-2025.bag"
     time, x, y, theta, velocity_vector, omega_vector, obs_data = read_bag_data(bag_file)
 
     # Data conditions:
     camera_offset = 0
 
-    dataset1 = False# If false its from dataset 2
+    dataset1 = True# If false its from dataset 2
 
-    straight_trajectory = True
+    straight_trajectory = False
     L_trajectory = False
-    square_trajectory = False
+    square_trajectory = True
     inverse = False # For inverse straight and L trajectories
     
-    just_mapping = True
+    just_mapping = False
 
     
     # -----------------------------------------------------------------------------------------------------------------
@@ -224,9 +224,9 @@ def main():
             paths = resample_paths(paths, fastslam.resampled_indexes)
 
     # -----------------------------------------------------------------------------------------------------------------
-    # Data prcessing 
-
-        # Select best particle and extract information
+    # Data processing
+    
+    # Select best particle and extract information
     best_particle = fastslam.get_best_particle()
     best_path = fastslam.particles.index(best_particle)
     
@@ -235,29 +235,38 @@ def main():
     identified_real_landmarks = []
     estimated_landmarks = []
     estimated_landmarks_covariance = []
-
+    
     print(best_particle.landmarks_id)
     print(best_particle.landmarks_position)
-
-    for id in best_particle.landmarks_id:
-        idx_real = real_landmarks_id.index(id) if id in real_landmarks_id else None
-        idx_estimated = best_particle.landmarks_id.index(id) if id in best_particle.landmarks_id else None
-        
-        estimated_landmarks.append(best_particle.landmarks_position[idx_estimated])
-        estimated_landmarks_covariance.append(best_particle.landmarks_position_covariance[idx_estimated])
-
-        identified_real_landmarks.append(real_landmarks[idx_real])
     
-        # Convert to numpy array for vectorized indexing
-    identified_real_landmarks = np.array(identified_real_landmarks)
+    for id in best_particle.landmarks_id:
+        if id in real_landmarks_id:
+            idx_real = real_landmarks_id.index(id)
+            idx_estimated = best_particle.landmarks_id.index(id)
+    
+            # Flatten estimated landmark from shape (2, 1) to (2,)
+            estimated_pos = best_particle.landmarks_position[idx_estimated].reshape(2,)
+            estimated_landmarks.append(estimated_pos)
+            estimated_landmarks_covariance.append(best_particle.landmarks_position_covariance[idx_estimated])
+    
+            # Append real landmark (already in shape (2,))
+            identified_real_landmarks.append(real_landmarks[idx_real])
+        else:
+            print(f"Landmark ID {id} not found in real_landmarks_id — skipping.")
+    
+    # Convert to NumPy arrays of shape (N, 2)
+    identified_real_landmarks = np.array(identified_real_landmarks)  # shape (N, 2)
+    estimated_landmarks = np.array(estimated_landmarks)              # shape (N, 2)
+    
+    # Sanity check
+    print("identified_real_landmarks.shape =", identified_real_landmarks.shape)
+    print("estimated_landmarks.shape =", estimated_landmarks.shape)
     
     aligned_estimated_landmarks, estimated_center, real_center, Rotation = transform_landmarks(estimated_landmarks, identified_real_landmarks)
     
-    estimated = np.array([
-    [landmark[0][0], landmark[1][0]] for landmark in estimated_landmarks])
+    estimated = estimated_landmarks.copy()
     
-    aligned = np.array([
-    [landmark[0], landmark[1]] for landmark in aligned_estimated_landmarks])
+    aligned = aligned_estimated_landmarks.copy()
 
     RMSE = np.sqrt(np.mean(np.sum((aligned - identified_real_landmarks) ** 2, axis=1)))
     # ----------

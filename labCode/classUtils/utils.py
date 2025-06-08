@@ -90,7 +90,7 @@ def draw_fastslam_particles(particles, win, color=(0, 0, 255)):
         pygame.draw.circle(win, (0, 0, 0), pos, 4)  # black outline
         pygame.draw.circle(win, color, pos, 3)      # main colored dot
 
-def draw_covariance_ellipse(win, mean, cov, color=(255, 0, 0), scale=2.0, min_size=5.0):
+def draw_covariance_ellipse(win, mean, cov, color=(255, 0, 0), scale=1.0, min_size=0):
     """Draw covarice ellipses in Microsimulator"""
     import pygame
 
@@ -113,7 +113,7 @@ def draw_covariance_ellipse(win, mean, cov, color=(255, 0, 0), scale=2.0, min_si
     rect = ellipse_rot.get_rect(center=(mean[0], mean[1]))
     win.blit(ellipse_rot, rect)
 
-def draw_ellipse(ax, mean, cov, scale=2.0, min_size=0, color='0.7'):
+def draw_ellipse(ax, mean, cov, scale=1.0, min_size=0, color='0.7'):
     """Draw covarice ellipses in final Map"""
 
     eigenvals, eigenvecs = np.linalg.eig(cov)
