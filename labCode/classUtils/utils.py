@@ -6,11 +6,11 @@ from matplotlib.patches import Ellipse
 # Debugging and utility functions
 
 def wrap_angle_rad(angle):
-    """Wrap angle to [-π, π)"""
+    '''Wrap angle to [-π, π)'''
     return (angle + math.pi) % (2 * math.pi) - math.pi
 
 def transform_landmarks(estimated, real):
-    """Align estimated landmarks to real landmarks using orthogonal Procrustes."""
+    '''Align estimated landmarks to real landmarks using orthogonal Procrustes.'''
     
     from scipy.linalg import orthogonal_procrustes
 
@@ -82,7 +82,7 @@ def resample_paths(paths,indexes):
 # -----------------------------------------------------------------------------------------------------------------
 # Draw in simulation
 def draw_fastslam_particles(particles, win, color=(0, 0, 255)):
-    """Draw all particles in the FastSLAM algorithm."""
+    '''Draw all particles in the FastSLAM algorithm.'''
     import pygame
 
     for particle in particles:
@@ -91,7 +91,7 @@ def draw_fastslam_particles(particles, win, color=(0, 0, 255)):
         pygame.draw.circle(win, color, pos, 3)      # main colored dot
 
 def draw_covariance_ellipse(win, mean, cov, color=(255, 0, 0), scale=1.0, min_size=0):
-    """Draw covarice ellipses in Microsimulator"""
+    '''Draw covarice ellipses in Microsimulator'''
     import pygame
 
     eigenvals, eigenvecs = np.linalg.eig(cov)
@@ -114,7 +114,7 @@ def draw_covariance_ellipse(win, mean, cov, color=(255, 0, 0), scale=1.0, min_si
     win.blit(ellipse_rot, rect)
 
 def draw_ellipse(ax, mean, cov, scale=1.0, min_size=0, color='0.7'):
-    """Draw covarice ellipses in final Map"""
+    '''Draw covarice ellipses in final Map'''
 
     eigenvals, eigenvecs = np.linalg.eig(cov)
     order = eigenvals.argsort()[::-1]
@@ -210,7 +210,7 @@ def read_bag_data(bag_file):
     interp_angular_z = np.interp(obs_times, pose_vectors[:, 0], pose_vectors[:, 5])
 
     return obs_times, interp_x, interp_y, interp_orientation_z, interp_linear_x, interp_angular_z, obs_data
-    #return obs_times, obs_data """Use this line only for camera stochastics"
+    #return obs_times, obs_data '''Use this line only for camera stochastics'
 
 def read_bag_obs_data(bag_file):
     import rosbag
@@ -240,6 +240,81 @@ def read_bag_obs_data(bag_file):
             entry[0] -= time_bias
 
     return obs_times, obs_data
+
+def select_bag_file_from_list():
+    import tkinter as tk
+    from tkinter import ttk
+
+    bag_options = [
+        'L-30-05-2025.bag',
+        'square2-30-05-2025.bag',
+        'straight.bag',
+        'straight731.bag',
+        'L.bag',
+        'Lreturn.bag',
+        'map1.bag',
+        'map2.bag'
+    ]
+    selected_bag = {'value': None}
+
+    def on_select():
+        selected_bag['value'] = combo.get()
+        root.destroy()
+
+    root = tk.Tk()
+    root.geometry('+900+500')  # (x=400, y=200) - change these values as needed
+    root.title('Select ROS Bag File')
+    tk.Label(root, text='Choose a bag file:').pack(padx=10, pady=10)
+    combo = ttk.Combobox(root, values=bag_options, state='readonly')
+    combo.pack(padx=10, pady=5)
+    combo.current(0)
+    tk.Button(root, text='OK', command=on_select).pack(pady=10)
+    root.mainloop()
+    return selected_bag['value']
+
+def set_data_conditions_from_bag(bag_name):
+    '''
+    Sets dataset1, straight_trajectory, L_trajectory, square_trajectory, inverse, just_mapping
+    based on the bag file name.
+    Returns a tuple of these flags.
+    '''
+    
+    dataset1 = False
+    straight_trajectory = False
+    L_trajectory = False
+    square_trajectory = False
+    inverse = False
+    just_mapping = False
+    camera_offset = 0
+
+    # Dataset 1
+    if '30-05-2025' in bag_name:
+        dataset1 = True
+        if 'L-' in bag_name:
+            L_trajectory = True
+        elif 'square' in bag_name:
+            square_trajectory = True
+            camera_offset = -math.pi/2
+    # Dataset 2
+    elif 'straight' in bag_name:
+        dataset1 = False
+        straight_trajectory = True
+        if '731' in bag_name:
+            inverse = True
+
+    elif 'L.bag' in bag_name:
+        dataset1 = False
+        L_trajectory = True
+        if 'return' in bag_name:
+            inverse = True
+
+    elif 'map1' in bag_name or 'map2' in bag_name:
+        dataset1 = False
+        just_mapping = True
+    else:
+        print('Unknown bag type, please set data conditions manually if needed.')
+    return dataset1, straight_trajectory, L_trajectory, square_trajectory, inverse, just_mapping, camera_offset
+
 
 # -----------------------------------------------------------------------------------------------------------------
 # Test
@@ -274,18 +349,18 @@ def test_transform_landmarks():
     plt.scatter(estimated[:, 0], estimated[:, 1], c='red', marker='x', label='Estimated (before)')
     plt.scatter(estimated_aligned[:, 0], estimated_aligned[:, 1], c='blue', marker='o', label='Estimated (aligned)')
     plt.legend()
-    plt.title("Test transform_landmarks")
+    plt.title('Test transform_landmarks')
     plt.axis('equal')
     plt.show()
 
     # Print for numeric check
-    print("Real:\n", real)
-    print("Estimated (before):\n", estimated)
-    print("Estimated (aligned):\n", estimated_aligned)
-    print("Alignment error (should be small):", np.linalg.norm(estimated_aligned - real))
+    print('Real:\n', real)
+    print('Estimated (before):\n', estimated)
+    print('Estimated (aligned):\n', estimated_aligned)
+    print('Alignment error (should be small):', np.linalg.norm(estimated_aligned - real))
 
 # Call this function to test
-if __name__ == "__main__":
+if __name__ == '__main__':
     test_transform_landmarks()
 
 

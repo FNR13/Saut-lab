@@ -10,26 +10,28 @@ from classAlgorithm.fastslam import FastSLAM
 from classAlgorithmRangeOnly.fastslam import FastSLAM_RO
 from classAlgorithmBearingOnly.fastslam import FastSLAM_BO
 
-
 # -----------------------------------------------------------------------------------------------------------------
 def main():
-    # "../bags/square2-30-05-2025.bag"
-    bag_file = "/Users/usuario/Desktop/Máster/Autonomous systems/Project/Saut-lab/Bags/map2.bag"
-    time_, x, y, theta, velocity_vector, omega_vector, obs_data = read_bag_data(bag_file)
+    # Dataset 1 bags:
+    # L-30-05-2025.bag
+    # square2-30-05-2025.bag
 
-    # Data conditions:
-    camera_offset = 0
+    # Dataset 2 bags
+    # 'straight.bag'
+    # 'straight731.bag'
+    # 'L.bag'
+    # 'Lreturn.bag'
+    # 'map1.bag'
+    # 'map2.bag'
 
-    dataset1 = False# If false its from dataset 2
+    bag_name = select_bag_file_from_list()
+    if not bag_name:
+        print("No bag file selected. Exiting.")
+        return
 
-    straight_trajectory = False
-    L_trajectory = False
-    square_trajectory = False
-    inverse = False # For inverse straight and L trajectories
-    
-    just_mapping = True
+    # Data lab conditions:
+    dataset1, straight_trajectory, L_trajectory, square_trajectory, inverse, just_mapping, camera_offset = set_data_conditions_from_bag(bag_name)
 
-    
     # -----------------------------------------------------------------------------------------------------------------
     # FastSLAM initialization
 
@@ -115,21 +117,20 @@ def main():
         (0, -0.30),      # 297
         (-0.88, 0.26),   # 557
         (-0.70, 1.23),   # 934
-        (0.80, 1.15),    # 572
+        (0.80, 1.15),    # 582
         (0.80, 2.85),    # 206
         (0.80, 4.21),    # 545
         (0.80, 6.06),    # 360
         (0.50, 8.01),    # 433
-        (-0.73, 8.01),   # 60
+        (-0.73, 8.01),   # 63
         (-0.90, 5.93),   # 337
         (-0.62, 5.43),   # 105
         (-0.41, 4.45),   # 952
         (-0.41, 2.33),   # 124
-        (-0.64, 1.35),   # 934
         (-2.00, 6.26),   # 836
         (-2.87, 7.99),   # 844
     ])
-    real_landmarks_id_map2 = [297, 557, 934, 572, 206, 545, 360, 433, 60, 337, 105, 952, 124, 934]
+    real_landmarks_id_map2 = [297, 557, 934, 582, 206, 545, 360, 433, 63, 337, 105, 952, 124, 836, 844]
 
     # Straight Trajectory
     real_straight_trajectory = np.array([
@@ -142,7 +143,7 @@ def main():
     ])
 
     # On just mapping this id was changed
-    landmark_change = (-3.77,-7.14)
+    landmark_change = (-3.77,7.14)
 
     # Get right landmarks
     if dataset1:
@@ -174,6 +175,17 @@ def main():
 
     if inverse:
         legend = " Inverse " + legend
+
+    # Data
+    import os
+    
+    bag_file = "../Bags/" + bag_name
+    if not os.path.exists(bag_file):
+        bag_file = "../bags/" + bag_name
+    if not os.path.exists(bag_file):
+        raise FileNotFoundError("Bag: " + bag_name+ " not found in either 'Bags' or 'bags' directory.")
+    
+    time_, x, y, theta, velocity_vector, omega_vector, obs_data = read_bag_data(bag_file)
 
     # Array for saving all paths
     paths = np.zeros((N_PARTICLES, 1, 3), dtype=float)
@@ -245,9 +257,6 @@ def main():
     estimated_landmarks = []
     estimated_landmarks_covariance = []
     
-    print(best_particle.landmarks_id)
-    print(best_particle.landmarks_position)
-    
     for id in best_particle.landmarks_id:
         if id in real_landmarks_id:
             idx_real = real_landmarks_id.index(id)
@@ -266,10 +275,6 @@ def main():
     # Convert to NumPy arrays of shape (N, 2)
     identified_real_landmarks = np.array(identified_real_landmarks)  # shape (N, 2)
     estimated_landmarks = np.array(estimated_landmarks)              # shape (N, 2)
-    
-    # Sanity check
-    print("identified_real_landmarks.shape =", identified_real_landmarks.shape)
-    print("estimated_landmarks.shape =", estimated_landmarks.shape)
     
     aligned_estimated_landmarks, estimated_center, real_center, Rotation = transform_landmarks(estimated_landmarks, identified_real_landmarks)
     
@@ -376,6 +381,10 @@ def main():
                 particle_color, label='Estimated Most Probable Path', linewidth=1)
     ax1.scatter(estimated[:, 0], estimated[:, 1], marker='x', c=particle_color, label='Estimated Landmarks')
     
+    for i, (x, y) in enumerate(estimated):
+        if i < len(best_particle.landmarks_id):
+            ax1.annotate(str(best_particle.landmarks_id[i]), (x, y), textcoords="offset points", xytext=(5,5), ha='left', fontsize=8, color='black')
+
     if use_range_only_fastslam:
         ax1.set_title('Range Only FastSLAM (Odometry & Non-Aligned Estimation)')
     elif use_bearing_only_fastslam:
