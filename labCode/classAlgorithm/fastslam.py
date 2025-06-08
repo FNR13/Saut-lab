@@ -129,6 +129,12 @@ class FastSLAM:
         for p in self.particles:
             p.weight /= total_weight
 
+    def get_current_landmark_covariances(self):
+        best_particle = self.get_best_particle()
+        covariances = {}
+        for idx, landmark_id in enumerate(best_particle.landmarks_id):
+            covariances[landmark_id] = np.copy(best_particle.landmarks_position_covariance[idx])
+        return covariances
 # -----------------------------------------------------------------------------------------------------------------
 # Test functions
 
