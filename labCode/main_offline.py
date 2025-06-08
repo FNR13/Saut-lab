@@ -195,7 +195,9 @@ def main():
 
     # List for saving the iteration time
     iteration_time = []
-
+    landmarks_covariance_over_time = []
+    landmarks_position_over_time = []
+    
     # -----------------------------------------------------------------------------------------------------------------------------
     # Main loop: step through bag data
     for i in range(1, len(time_)):
@@ -218,6 +220,8 @@ def main():
         # Add the new pose to the path
         paths = update_paths(paths, new_pose)
         
+
+        
         # Prepare observations for this timestep
         z = []
         for obs in obs_data[i][1]:
@@ -239,10 +243,20 @@ def main():
         if z:
             fastslam.observation_update(z)
             fastslam.resampling()
-
-            # Resample the paths in the same manner as the particles
             paths = resample_paths(paths, fastslam.resampled_indexes)
             z_all.append(z)
+
+            best_particle = fastslam.get_best_particle()
+            
+            covs = {}
+            positions = {}
+            
+            for idx, landmark_id in enumerate(best_particle.landmarks_id):
+                covs[landmark_id] = np.copy(best_particle.landmarks_position_covariance[idx])
+                positions[landmark_id] = np.copy(best_particle.landmarks_position[idx])
+            
+            landmarks_covariance_over_time.append(covs)
+            landmarks_position_over_time.append(positions)
 
         stop_clock = time.time()
         iteration_time.append(stop_clock - start_clock)
@@ -274,6 +288,7 @@ def main():
             identified_real_landmarks.append(real_landmarks[idx_real])
         else:
             print(f"Landmark ID {id} not found in real_landmarks_id — skipping.")
+            
     
     # Convert to NumPy arrays of shape (N, 2)
     identified_real_landmarks = np.array(identified_real_landmarks)  # shape (N, 2)
@@ -291,6 +306,7 @@ def main():
     # Extract the best path
 
     most_probable_path = paths[best_path, :, :2]
+    
 
         # Center the path using the same estimated_center as for landmarks
     centered_path = most_probable_path - estimated_center
@@ -317,6 +333,73 @@ def main():
 
     file_name += (str(N_PARTICLES) + '_particles.npy')
     np.save(file_name, iteration_time)
+    
+    # Track per-landmark data
+    landmark_time_series = {}  # id → list of (aligned_est_pos, true_pos, covariance)
+    
+    for t in range(len(landmarks_covariance_over_time)):
+        best_particle = fastslam.get_best_particle()
+    
+        est_positions = []
+        true_positions = []
+        valid_ids = []
+    
+        for idx, landmark_id in enumerate(best_particle.landmarks_id):
+            if landmark_id not in real_landmarks_id:
+                continue
+            if landmark_id not in landmarks_covariance_over_time[t]:
+                continue
+    
+            # Estimated pos
+            est_pos = best_particle.landmarks_position[idx].flatten()
+            est_positions.append(est_pos)
+    
+            # True pos
+            idx_real = real_landmarks_id.index(landmark_id)
+            true_pos = real_landmarks[idx_real].flatten()
+            true_positions.append(true_pos)
+    
+            valid_ids.append(landmark_id)
+    
+        if not est_positions:
+            continue  # skip timestep if nothing valid
+    
+        est_positions = np.array(est_positions)  # shape (N, 2)
+        true_positions = np.array(true_positions)  # shape (N, 2)
+    
+        # 🧭 Procrustes alignment of entire map (estimated to true)
+        aligned_est, _, _, _ = transform_landmarks(est_positions, true_positions)
+    
+        for i, landmark_id in enumerate(valid_ids):
+            aligned_pos = aligned_est[i]
+            true_pos = true_positions[i]
+            covariance = landmarks_covariance_over_time[t][landmark_id]
+    
+            if landmark_id not in landmark_time_series:
+                landmark_time_series[landmark_id] = []
+    
+            landmark_time_series[landmark_id].append((aligned_pos, true_pos, covariance))
+            
+    nees_per_landmark = {}
+    average_nees_per_landmark = {}
+    
+    for landmark_id, data in landmark_time_series.items():
+        aligned_batch = []
+        true_batch = []
+        covariances = []
+    
+        for aligned_pos, true_pos, cov in data:
+            aligned_batch.append(aligned_pos)
+            true_batch.append(true_pos)
+            covariances.append(cov)
+    
+        aligned_batch = np.array(aligned_batch)
+        true_batch = np.array(true_batch)
+        covariances = np.array(covariances)
+    
+        nees_vals, avg_nees = calculate_NEES(aligned_batch, true_batch, covariances)
+        nees_per_landmark[landmark_id] = nees_vals
+        average_nees_per_landmark[landmark_id] = avg_nees
 
     # -----------------------------------------------------------------------------------------------------------------
     # -----------------------------------------------------------------------------------------------------------------
@@ -412,6 +495,19 @@ def main():
 
     plt.show()
     
+    # --- Figure 3: NEES per Landmark Over Time ---
+    fig2, ax2 = plt.subplots()
+    
+    for landmark_id, nees_vals in nees_per_landmark.items():
+        ax2.plot(nees_vals, label=f'Landmark {landmark_id}')
+    
+    ax2.set_title("NEES per Landmark Over Time")
+    ax2.set_xlabel("Timestep")
+    ax2.set_ylabel("NEES")
+    ax2.legend(loc='best')
+    ax2.grid(True)
+    
+    plt.show()
 
 # -----------------------------------------------------------------------------------------------------------------
 import os as oss

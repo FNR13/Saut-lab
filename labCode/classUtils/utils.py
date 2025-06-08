@@ -77,7 +77,26 @@ def resample_paths(paths,indexes):
     '''Resample the particles with replacement'''
     # Resampling 
     paths = paths[indexes, :, :]
-    return paths  
+    return paths
+
+def calculate_NEES(estimated_states, true_states, covariances):
+    """
+    Compute NEES for each time step.
+    """
+    T = estimated_states.shape[0]
+    nees_values = np.zeros(T)
+
+    for t in range(T):
+        error = estimated_states[t] - true_states[t]
+        P = covariances[t]
+        try:
+            nees = error.T @ np.linalg.inv(P) @ error
+            nees_values[t] = nees
+        except np.linalg.LinAlgError:
+            nees_values[t] = np.nan  # mark failure due to singular matrix
+
+    average_nees = np.nanmean(nees_values)
+    return nees_values, average_nees    
 
 # -----------------------------------------------------------------------------------------------------------------
 # Draw in simulation
