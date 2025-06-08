@@ -164,7 +164,8 @@ def main():
 
                 distance = math.hypot(dx, dy) #it was range in previous versions but range is an internal functionfro python 
                 bearing = wrap_angle_rad(math.atan2(dy, dx) + rob.theta)
-
+                print(bearing)
+                
                 # Add noise
                 if use_camera_noise:
                     distance += np.random.normal(0, distance_noise_power) 

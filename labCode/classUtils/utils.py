@@ -285,6 +285,7 @@ def set_data_conditions_from_bag(bag_name):
     square_trajectory = False
     inverse = False
     just_mapping = False
+    landmark297_change = False
     camera_offset = 0
 
     # Dataset 1
@@ -292,9 +293,10 @@ def set_data_conditions_from_bag(bag_name):
         dataset1 = True
         if 'L-' in bag_name:
             L_trajectory = True
-        elif 'square' in bag_name:
+            camera_offset = math.pi/2
+        elif 'square2' in bag_name:
             square_trajectory = True
-            camera_offset = -math.pi/2
+            camera_offset = math.pi/2
     # Dataset 2
     elif 'straight' in bag_name:
         dataset1 = False
@@ -305,15 +307,21 @@ def set_data_conditions_from_bag(bag_name):
     elif 'L.bag' in bag_name:
         dataset1 = False
         L_trajectory = True
-        if 'return' in bag_name:
-            inverse = True
+        landmark297_change = True
+    elif 'Lreturn.bag' in bag_name:
+        dataset1 = False
+        L_trajectory = True
+        landmark297_change = True
+        inverse = True
 
     elif 'map1' in bag_name or 'map2' in bag_name:
         dataset1 = False
         just_mapping = True
+        landmark297_change = True
     else:
         print('Unknown bag type, please set data conditions manually if needed.')
-    return dataset1, straight_trajectory, L_trajectory, square_trajectory, inverse, just_mapping, camera_offset
+
+    return dataset1, straight_trajectory, L_trajectory, square_trajectory, inverse, just_mapping, landmark297_change, camera_offset
 
 
 # -----------------------------------------------------------------------------------------------------------------

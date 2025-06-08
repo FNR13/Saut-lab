@@ -28,10 +28,10 @@ def main():
     if not bag_name:
         print("No bag file selected. Exiting.")
         return
-
+    
+    # bag_name  = 'Lreturn.bag'
     # Data lab conditions:
-    dataset1, straight_trajectory, L_trajectory, square_trajectory, inverse, just_mapping, camera_offset = set_data_conditions_from_bag(bag_name)
-
+    dataset1, straight_trajectory, L_trajectory, square_trajectory, inverse, just_mapping, landmark297_change, camera_offset = set_data_conditions_from_bag(bag_name)
     # -----------------------------------------------------------------------------------------------------------------
     # FastSLAM initialization
 
@@ -42,11 +42,11 @@ def main():
         # Tuning parameters
     N_PARTICLES = 150
     particles_odometry_uncertainty = (0.005, 0.05)  # (speed, angular rate)
-    landmarks_initial_uncertainty = 1
+    landmarks_initial_uncertainty = 0.5
     Q_cov_range = 5.64628409e-07
     Q_cov_bearing = 1.47227856e-10
-    Q_cov_range = 1
-    Q_cov_bearing = 1
+    Q_cov_range = 0.5
+    Q_cov_bearing = 0.5
 
 
     if use_range_only_fastslam:
@@ -167,8 +167,8 @@ def main():
     elif square_trajectory:
         real_trajectory = real_square_trajectory
         legend = 'Square Trajectory'
-    elif just_mapping: 
-        real_landmarks_map2[1] = landmark_change
+    elif just_mapping:
+        pass
     else:
         print("Please select a trajectory option.")
         return
@@ -176,6 +176,8 @@ def main():
     if inverse:
         legend = " Inverse " + legend
 
+    if landmark297_change: 
+        real_landmarks_map2[0] = landmark_change
     # Data
     import os
     
@@ -189,6 +191,7 @@ def main():
 
     # Array for saving all paths
     paths = np.zeros((N_PARTICLES, 1, 3), dtype=float)
+    z_all = []
 
     # List for saving the iteration time
     iteration_time = []
@@ -216,30 +219,30 @@ def main():
         paths = update_paths(paths, new_pose)
         
         # Prepare observations for this timestep
-        z_all = []
+        z = []
         for obs in obs_data[i][1]:
             marker_id, dx, dy, dz = obs
             # Convert to range and bearing relative to the robot pose
             # dx lateral distance(left/right is negative/positive), dz foward distance 
             distance = math.hypot(dz, dx)
-            #bearing = wrap_angle_rad(math.atan2(dx, dz)) #Before
-            bearing = wrap_angle_rad(math.atan2(dx, dz) - camera_offset)
+            bearing = -wrap_angle_rad(math.atan2(dx, dz) - camera_offset)
 
             if use_range_only_fastslam:
                 # For Range Only FastSLAM, we only need the distance
-                z_all.append([marker_id, distance])
+                z.append([marker_id, distance])
             elif use_bearing_only_fastslam:
                 # For Bearing Only FastSLAM, we only need the bearing
-                z_all.append([marker_id, bearing])
+                z.append([marker_id, bearing])
             else:
-                z_all.append([marker_id, distance, bearing])
+                z.append([marker_id, distance, bearing])
 
-        if z_all:
-            fastslam.observation_update(z_all)
+        if z:
+            fastslam.observation_update(z)
             fastslam.resampling()
 
             # Resample the paths in the same manner as the particles
             paths = resample_paths(paths, fastslam.resampled_indexes)
+            z_all.append(z)
 
         stop_clock = time.time()
         iteration_time.append(stop_clock - start_clock)
@@ -318,6 +321,7 @@ def main():
     # -----------------------------------------------------------------------------------------------------------------
     # -----------------------------------------------------------------------------------------------------------------
     # Data Visualization
+    
     ground_truth_color = 'red'
     particle_color = 'black'
     aligned_estimation_color = 'blue'
@@ -394,7 +398,7 @@ def main():
 
     ax1.set_xlabel('X')
     ax1.set_ylabel('Y')
-    ax1.legend(loc='best', bbox_to_anchor=(1, 0.5))
+    ax1.legend(loc='best', bbox_to_anchor=(0.5, 0.5))
     ax1.grid(True)
 
     # Add RMSE text box to Figure 2
@@ -407,7 +411,10 @@ def main():
     )
 
     plt.show()
+    
 
 # -----------------------------------------------------------------------------------------------------------------
+import os as oss
 if __name__ == "__main__":
+    oss.system('clear')
     main()

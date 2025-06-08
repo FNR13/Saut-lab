@@ -75,8 +75,8 @@ class Particle:
             range = z[0]
             bearing = z[1]
 
-            s = math.sin(self.theta + bearing)
-            c = math.cos(self.theta + bearing)
+            s = math.sin(bearing + self.theta)
+            c = math.cos(bearing + self.theta)
 
             landmark_x = self.x + range * c
             landmark_y = self.y + range * s
