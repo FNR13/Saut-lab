@@ -2,6 +2,8 @@ import math
 import numpy as np
 import matplotlib.pyplot as plt
 import time
+import arviz as az
+import xarray as xr
 
 
 from classUtils.utils import *
@@ -193,10 +195,11 @@ def main():
     paths = np.zeros((N_PARTICLES, 1, 3), dtype=float)
     z_all = []
 
-    # List for saving the iteration time
+    # List for saving the iteration time, landmarks covariance, landmarks_position, particle weights
     iteration_time = []
     landmarks_covariance_over_time = []
     landmarks_position_over_time = []
+    all_weights = []  
     
     # -----------------------------------------------------------------------------------------------------------------------------
     # Main loop: step through bag data
@@ -242,6 +245,11 @@ def main():
 
         if z:
             fastslam.observation_update(z)
+            
+            # Store weights before resampling
+            weights_before_resampling = [p.weight for p in fastslam.particles]
+            all_weights.append(weights_before_resampling)
+                        
             fastslam.resampling()
             paths = resample_paths(paths, fastslam.resampled_indexes)
             z_all.append(z)
@@ -400,7 +408,21 @@ def main():
         nees_vals, avg_nees = calculate_NEES(aligned_batch, true_batch, covariances)
         nees_per_landmark[landmark_id] = nees_vals
         average_nees_per_landmark[landmark_id] = avg_nees
-
+        
+    #For compute efective sample size
+    weights_array = np.array(all_weights)  # Shape: (time, N_particles)
+    weights_array_T = weights_array.T  # Shape: (N_particles, time)
+    
+    # Create a dummy posterior sample (e.g., log weights or particle indices)
+    posterior = xr.Dataset(
+        {"weights": (["chain", "draw"], weights_array_T[np.newaxis, :, :])}  # shape: (1, N_particles, time)
+    )
+    
+    idata = az.from_dict(posterior=posterior)
+    
+    ess = az.ess(idata, var_names=["weights"])
+    print(ess)
+    
     # -----------------------------------------------------------------------------------------------------------------
     # -----------------------------------------------------------------------------------------------------------------
     # Data Visualization
@@ -498,8 +520,16 @@ def main():
     # --- Figure 3: NEES per Landmark Over Time ---
     fig2, ax2 = plt.subplots()
     
+    T = len(landmarks_covariance_over_time)  # total timesteps
+    
     for landmark_id, nees_vals in nees_per_landmark.items():
-        ax2.plot(nees_vals, label=f'Landmark {landmark_id}')
+        # Landmark appeared only in the last len(nees_vals) timesteps
+        first_seen_time = T - len(nees_vals)
+        timesteps = np.arange(first_seen_time, T)
+        print(f"Landmark {landmark_id} seen from t={first_seen_time} to t={T-1}")
+        ax2.plot(timesteps, nees_vals, label=f'Landmark {landmark_id}')
+            
+
     
     ax2.set_title("NEES per Landmark Over Time")
     ax2.set_xlabel("Timestep")
