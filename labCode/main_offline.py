@@ -199,7 +199,6 @@ def main():
     iteration_time = []
     landmarks_covariance_over_time = []
     landmarks_position_over_time = []
-    all_weights = []  
     
     # -----------------------------------------------------------------------------------------------------------------------------
     # Main loop: step through bag data
@@ -244,12 +243,7 @@ def main():
                 z.append([marker_id, distance, bearing])
 
         if z:
-            fastslam.observation_update(z)
-            
-            # Store weights before resampling
-            weights_before_resampling = [p.weight for p in fastslam.particles]
-            all_weights.append(weights_before_resampling)
-                        
+            fastslam.observation_update(z)                      
             fastslam.resampling()
             paths = resample_paths(paths, fastslam.resampled_indexes)
             z_all.append(z)
@@ -375,7 +369,7 @@ def main():
         est_positions = np.array(est_positions)  # shape (N, 2)
         true_positions = np.array(true_positions)  # shape (N, 2)
     
-        # 🧭 Procrustes alignment of entire map (estimated to true)
+        #Procrustes alignment of entire map (estimated to true)
         aligned_est, _, _, _ = transform_landmarks(est_positions, true_positions)
     
         for i, landmark_id in enumerate(valid_ids):
@@ -409,19 +403,6 @@ def main():
         nees_per_landmark[landmark_id] = nees_vals
         average_nees_per_landmark[landmark_id] = avg_nees
         
-    #For compute efective sample size
-    weights_array = np.array(all_weights)  # Shape: (time, N_particles)
-    weights_array_T = weights_array.T  # Shape: (N_particles, time)
-    
-    # Create a dummy posterior sample (e.g., log weights or particle indices)
-    posterior = xr.Dataset(
-        {"weights": (["chain", "draw"], weights_array_T[np.newaxis, :, :])}  # shape: (1, N_particles, time)
-    )
-    
-    idata = az.from_dict(posterior=posterior)
-    
-    ess = az.ess(idata, var_names=["weights"])
-    print(ess)
     
     # -----------------------------------------------------------------------------------------------------------------
     # -----------------------------------------------------------------------------------------------------------------
